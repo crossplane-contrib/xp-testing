@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/GoogleContainerTools/container-diff v0.17.0
-	github.com/crossplane/crossplane v0.0.0-00010101000000-000000000000
+	github.com/crossplane/crossplane v1.11.5
 	github.com/crossplane/crossplane-runtime v0.19.2
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.38.1
@@ -91,8 +91,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/crossplane/crossplane => github.com/crossplane/crossplane v1.11.3
+replace github.com/crossplane/crossplane => github.com/crossplane/crossplane v1.11.5
 
-replace github.com/crossplane/crossplane-runtime => github.com/crossplane/crossplane-runtime v0.19.2
+replace github.com/crossplane/crossplane-runtime => github.com/crossplane/crossplane-runtime v0.18.0
 
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20190219180918-740349757396
