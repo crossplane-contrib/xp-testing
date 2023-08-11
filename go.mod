@@ -15,7 +15,7 @@ require (
 	k8s.io/apimachinery v0.27.4
 	k8s.io/client-go v0.27.4
 	k8s.io/klog/v2 v2.100.1
-	sigs.k8s.io/controller-runtime v0.15.0
+	sigs.k8s.io/controller-runtime v0.14.6
 	sigs.k8s.io/e2e-framework v0.2.0
 	sigs.k8s.io/kind v0.20.0
 )
@@ -93,6 +93,6 @@ require (
 
 replace github.com/crossplane/crossplane => github.com/crossplane/crossplane v1.11.5
 
-replace github.com/crossplane/crossplane-runtime => github.com/crossplane/crossplane-runtime v0.18.0
+replace github.com/crossplane/crossplane-runtime => github.com/crossplane/crossplane-runtime v0.19.2
 
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20190219180918-740349757396
