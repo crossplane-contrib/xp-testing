@@ -1,11 +1,16 @@
 name: CodeQL
 
 on:
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "main" ]
   push:
     branches:
       - main
       - release-*
   workflow_dispatch: {}
+  schedule:
+    - cron: '27 2 * * 0'
 
 permissions:
   actions: read
@@ -43,6 +48,10 @@ jobs:
         with:
           languages: go
 
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
-
+        with:
+          category: "/language:go"
