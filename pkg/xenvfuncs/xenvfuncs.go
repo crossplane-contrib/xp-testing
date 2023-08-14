@@ -448,8 +448,9 @@ func AwaitCRDsEstablished(ctx context.Context, cfg *envconf.Config) (context.Con
 		return ctx, err
 	}
 
+	c := conditions.New(client)
 	err = wait.For(
-		conditions.New(client).ResourcesMatch(&crds, crdIsEstablished), wait.WithTimeout(time.Minute),
+		c.ResourcesMatch(&crds, crdIsEstablished), wait.WithTimeout(time.Minute),
 	)
 	return ctx, err
 }

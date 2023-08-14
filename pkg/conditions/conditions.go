@@ -21,7 +21,7 @@ type Conditions struct {
 
 // New is constructor for Conditions
 func New(r *resources.Resources) *Conditions {
-	return &Conditions{resources: r}
+	return &Conditions{Condition: *apimachineryconditions.New(r), resources: r}
 }
 
 // ManagedResourceConditionMatch checks if a ManagedResource has a matching condition
