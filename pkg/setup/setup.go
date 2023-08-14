@@ -66,7 +66,6 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 			), firstSetup,
 		),
 		xenvfuncs.ApplySecretInCrossplaneNamespace("secret", s.SecretData),
-		xenvfuncs.CreateTestNamespace,
 		xenvfuncs.ApplyProviderConfig,
 		xenvfuncs.LoadSchemas(s.AddToSchemaFuncs...),
 		xenvfuncs.AwaitCRDsEstablished,
