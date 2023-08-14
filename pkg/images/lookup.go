@@ -19,11 +19,11 @@ type ProviderImages struct {
 	ControllerImage *string
 }
 
-// GetImagesFromJSONOrPanic retrieves image information from the environment and panics if `E2E_IMAGES` is not set
+// GetImagesFromEnvironmentOrPanic retrieves image information from the environment and panics if `E2E_IMAGES` is not set
 // `E2E_IMAGES` is expected to be a simple json like this.
 // ```{"$PackageKey": "ImageUrlOfPackageImage", "$controllerKey": "ImageUrlOfControllerImage"}```
 // The controller image (key) is optional
-func GetImagesFromJSONOrPanic(packageKey string, controllerKey *string) ProviderImages {
+func GetImagesFromEnvironmentOrPanic(packageKey string, controllerKey *string) ProviderImages {
 	imagesJSON := envvar.GetOrPanic(imagesJSONEnv)
 	images := map[string]string{}
 
