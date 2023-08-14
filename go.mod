@@ -92,7 +92,5 @@ require (
 )
 
 replace github.com/crossplane/crossplane => github.com/crossplane/crossplane v1.11.5
-
 replace github.com/crossplane/crossplane-runtime => github.com/crossplane/crossplane-runtime v0.19.2
-
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20190219180918-740349757396

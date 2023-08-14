@@ -2,6 +2,7 @@ package images
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -9,7 +10,7 @@ import (
 )
 
 const (
-	imagesJSONEnv = "TEST_IMAGES"
+	imagesJSONEnv = "E2E_IMAGES"
 )
 
 // ProviderImages holds information to the docker images for providers
@@ -18,8 +19,8 @@ type ProviderImages struct {
 	ControllerImage *string
 }
 
-// GetImagesFromJSONOrPanic retrieves image information from the environment and panics if `TEST_IMAGES` is not set
-// `TEST_IMAGES` is expected to be a simple json like this.
+// GetImagesFromJSONOrPanic retrieves image information from the environment and panics if `E2E_IMAGES` is not set
+// `E2E_IMAGES` is expected to be a simple json like this.
 // ```{"$PackageKey": "ImageUrlOfPackageImage", "$controllerKey": "ImageUrlOfControllerImage"}```
 // The controller image (key) is optional
 func GetImagesFromJSONOrPanic(packageKey string, controllerKey *string) ProviderImages {
@@ -29,7 +30,7 @@ func GetImagesFromJSONOrPanic(packageKey string, controllerKey *string) Provider
 	err := json.Unmarshal([]byte(imagesJSON), &images)
 
 	if err != nil {
-		panic(errors.Wrap(err, "failed to unmarshal json from UUT_IMAGE"))
+		panic(errors.Wrap(err, fmt.Sprintf("failed to unmarshal json from %s", imagesJSONEnv)))
 	}
 
 	uutConfig := images[packageKey]

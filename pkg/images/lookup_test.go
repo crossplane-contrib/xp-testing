@@ -21,7 +21,7 @@ func (suite *LookupSuite) TestGetImagesFromJSONOrPanic() {
 	controllerKey := "baz"
 
 	suite.T().Run("Returns both images from environment", func(t *testing.T) {
-		err := os.Setenv("TEST_IMAGES", "{\"foo\": \"bar\", \"baz\": \"boom\"}")
+		err := os.Setenv("E2E_IMAGES", "{\"foo\": \"bar\", \"baz\": \"boom\"}")
 		println(err)
 		providerImages := GetImagesFromJSONOrPanic(packageKey, &controllerKey)
 		assert.Equal(t, "bar", providerImages.Package)
@@ -29,24 +29,24 @@ func (suite *LookupSuite) TestGetImagesFromJSONOrPanic() {
 	})
 
 	suite.T().Run("Returns existing env vars", func(t *testing.T) {
-		os.Setenv("TEST_IMAGES", "{\"foo\": \"bar\"}")
+		os.Setenv("E2E_IMAGES", "{\"foo\": \"bar\"}")
 		providerImages := GetImagesFromJSONOrPanic(packageKey, nil)
 		assert.Equal(t, "bar", providerImages.Package)
 		assert.Nil(t, providerImages.ControllerImage)
 	})
 
 	suite.T().Run("env var not set, will panic", func(t *testing.T) {
-		os.Unsetenv("TEST_IMAGES")
+		os.Unsetenv("E2E_IMAGES")
 		assert.Panics(t, func() {
 			GetImagesFromJSONOrPanic(packageKey, nil)
 		})
 	})
 
 	suite.T().Run("invalid json, will panic", func(t *testing.T) {
-		os.Setenv("TEST_IMAGES", "//invalid.json")
+		os.Setenv("E2E_IMAGES", "//invalid.json")
 		assert.Panics(t, func() {
 			GetImagesFromJSONOrPanic(packageKey, nil)
 		})
 	})
-	os.Unsetenv("TEST_IMAGES")
+	os.Unsetenv("E2E_IMAGES")
 }
