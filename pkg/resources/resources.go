@@ -3,16 +3,15 @@ package resources
 import (
 	"context"
 	"fmt"
+	"github.com/maximilianbraun/xp-testing/pkg/xpconditions"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	crossplanev1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/samber/lo"
-	v1 "k8s.io/api/core/v1"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +28,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 )
 
-// ImportResources gets the resources from ./data/crs
+// ImportResources gets the resources from dir
 func ImportResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string) {
 	r := resClient(cfg)
 
@@ -44,7 +43,7 @@ func ImportResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir
 
 	// managed resources fare cluster scoped, so if we patched them with the test namespace it won't do anything
 	errdecode := decoder.DecodeEachFile(
-		ctx, os.DirFS(filepath.Join("./data/crs", dir)), "*",
+		ctx, os.DirFS(dir), "*",
 		decoder.CreateIgnoreAlreadyExists(r),
 	)
 	if errdecode != nil {
@@ -64,7 +63,7 @@ func GetResourcesWithRESTConfig(cfg *envconf.Config) (*resources.Resources, erro
 }
 
 func checkAtLeastOneYamlFile(dir string) (bool, error) {
-	files, err := filepath.Glob(filepath.Join("./data/crs", dir, "*.yaml"))
+	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
 	if err != nil {
 		return false, err
 	}
@@ -89,7 +88,7 @@ func WaitForResourcesToBeSynced(
 	res := cfg.Client().Resources()
 
 	err = wait.For(
-		conditions.New(res).ResourcesMatch(&mockList{Items: objects}, managedResourceSyncedAndAvailable), opts...,
+		xpconditions.New(res).ManagedResourcesReadyAndReady(&mockList{Items: objects}), opts...,
 	)
 	return err
 }
@@ -113,22 +112,6 @@ func identifiers(objects []k8s.Object) string {
 	return val
 }
 
-func managedResourceSyncedAndAvailable(object k8s.Object) bool {
-	managed, ok := object.(resource.Managed)
-	if !ok {
-		klog.V(4).Infof("Object (%s) is not a managed resource, treat as synced", Identifier(object))
-		return true
-	}
-
-	return managedCheckCondition(managed, xpv1.TypeSynced, v1.ConditionTrue) &&
-		managedCheckCondition(managed, xpv1.TypeReady, v1.ConditionTrue)
-}
-
-func managedCheckCondition(o resource.Managed, conditionType xpv1.ConditionType, want v1.ConditionStatus) bool {
-	got := o.GetCondition(conditionType).Status
-	return want == got
-}
-
 func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dir string) ([]k8s.Object, error) {
 	r := resClient(cfg)
 
@@ -136,7 +119,7 @@ func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dir string) ([
 
 	objects := make([]k8s.Object, 0)
 	err := decoder.DecodeEachFile(
-		ctx, os.DirFS(filepath.Join("./data/crs", dir)), "*",
+		ctx, os.DirFS(dir), "*",
 		func(ctx context.Context, obj k8s.Object) error {
 			objects = append(objects, obj)
 			return nil
@@ -261,15 +244,16 @@ func deleteObjects(ctx context.Context, cfg *envconf.Config, dir string) error {
 	r.WithNamespace(cfg.Namespace())
 
 	return decoder.DecodeEachFile(
-		ctx, os.DirFS(filepath.Join("./data/crs", dir)), "*",
+		ctx, os.DirFS(dir), "*",
 		decoder.DeleteHandler(r),
 	)
 }
 
 // AwaitResourceUpdateOrError waits for a given resource to update with a timeout of 3 minutes
 func AwaitResourceUpdateOrError(ctx context.Context, t *testing.T, cfg *envconf.Config, object k8s.Object) {
+	xpc := xpconditions.New(cfg.Client().Resources())
 	AwaitResourceUpdateFor(
-		ctx, t, cfg, object, managedResourceSyncedAndAvailable,
+		ctx, t, cfg, object, xpc.IsManagedResourceReadyAndReady,
 		wait.WithTimeout(time.Minute*3),
 	)
 }
@@ -320,15 +304,28 @@ func AwaitResourceDeletionOrFail(ctx context.Context, t *testing.T, cfg *envconf
 // It contains the kind of resource and the object to be tested
 // and then provides basic CRD tests for the resource.
 type ResourceTestConfig struct {
-	Kind            string
-	Obj             k8s.Object
-	AdditionalSteps map[string]func(context.Context, *testing.T, *envconf.Config) context.Context
+	Kind              string
+	Obj               k8s.Object
+	AdditionalSteps   map[string]func(context.Context, *testing.T, *envconf.Config) context.Context
+	ResourceDirectory string
+}
+
+func NewResourceTestConfig(obj k8s.Object, kind string) *ResourceTestConfig {
+	return &ResourceTestConfig{Kind: kind, Obj: obj, AdditionalSteps: nil, ResourceDirectory: DefaultCRFolder(kind)}
+
+}
+
+func (r *ResourceTestConfig) DefaultCRFolder() string {
+	return path.Join("./crs", r.Kind)
+}
+func DefaultCRFolder(kind string) string {
+	return path.Join("./crs", kind)
 }
 
 // Setup creates the resource in the cluster.
 func (r *ResourceTestConfig) Setup(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 	t.Logf("Apply %s", r.Kind)
-	ImportResources(ctx, t, cfg, r.Kind)
+	ImportResources(ctx, t, cfg, r.ResourceDirectory)
 
 	return ctx
 }
@@ -340,7 +337,7 @@ func (r *ResourceTestConfig) Teardown(ctx context.Context, t *testing.T, cfg *en
 
 // AssessCreate checks that the resource was created successfully.
 func (r *ResourceTestConfig) AssessCreate(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-	if err := WaitForResourcesToBeSynced(ctx, cfg, r.Kind, wait.WithTimeout(time.Minute*5)); err != nil {
+	if err := WaitForResourcesToBeSynced(ctx, cfg, r.ResourceDirectory, wait.WithTimeout(time.Minute*5)); err != nil {
 		DumpManagedResources(ctx, t, cfg)
 		t.Fatal(err)
 	}
@@ -354,5 +351,5 @@ func (r *ResourceTestConfig) AssessUpdate(ctx context.Context, t *testing.T, cfg
 
 // AssessDelete checks that the resource was deleted successfully.
 func (r *ResourceTestConfig) AssessDelete(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-	return DeleteResources(ctx, t, cfg, r.Kind, wait.WithTimeout(time.Minute*5))
+	return DeleteResources(ctx, t, cfg, r.ResourceDirectory, wait.WithTimeout(time.Minute*5))
 }

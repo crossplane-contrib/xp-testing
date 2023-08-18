@@ -1,4 +1,4 @@
-package xenvfuncs
+package xpenvfuncs
 
 import (
 	"bytes"
@@ -30,12 +30,12 @@ import (
 	"sigs.k8s.io/e2e-framework/third_party/helm"
 	"sigs.k8s.io/kind/pkg/cluster"
 
-	xconditions "github.com/maximilianbraun/xp-testing/pkg/conditions"
 	resHelper "github.com/maximilianbraun/xp-testing/pkg/resources"
+	xconditions "github.com/maximilianbraun/xp-testing/pkg/xpconditions"
 
 	"github.com/maximilianbraun/xp-testing/internal/docker"
 	"github.com/maximilianbraun/xp-testing/internal/xpkg"
-	"github.com/maximilianbraun/xp-testing/pkg/conditions"
+	"github.com/maximilianbraun/xp-testing/pkg/xpconditions"
 )
 
 const crsCrossplaneCacheVolumeTemplate = `apiVersion: v1
@@ -94,7 +94,7 @@ var (
 type clusterNameType string
 
 // InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster
-func InstallCrossplane(clusterName string) env.Func { // TODO specify version
+func InstallCrossplane(clusterName string, crossplaneVersion string) env.Func {
 	cacheName := "package-cache"
 
 	return Compose(
@@ -124,13 +124,12 @@ func InstallCrossplane(clusterName string) env.Func { // TODO specify version
 			helmInstallOpts := []helm.Option{
 				helm.WithName("crossplane"),
 				helm.WithNamespace("crossplane-system"),
+				helm.WithVersion(crossplaneVersion),
 				helm.WithReleaseName(helmRepoName + "/crossplane"),
 				helm.WithArgs("--set", fmt.Sprintf("packageCache.pvc=%s", cacheName)),
-				helm.WithWait(),
 				helm.WithTimeout("10m"),
+				helm.WithWait(),
 			}
-
-			// TODO set target crossplane version
 
 			if err := manager.RunInstall(helmInstallOpts...); err != nil {
 				return ctx, errors.Wrap(err, "install crossplane func: failed to install crossplane Helm chart")
@@ -189,13 +188,13 @@ func ApplyProviderConfig(ctx context.Context, cfg *envconf.Config) (context.Cont
 
 	klog.Info("Apply ProviderConfig")
 	errDecode := decoder.DecodeEachFile(
-		ctx, os.DirFS("./data/provider"), "*",
+		ctx, os.DirFS("./provider"), "*",
 		decoder.CreateHandler(r),
 		decoder.MutateNamespace(cfg.Namespace()),
 	)
 
 	if errDecode != nil {
-		klog.Error("Error Details", "errDecode", errDecode)
+		klog.Error("Error Details ", "errDecode ", errDecode)
 	}
 
 	return ctx, nil
@@ -345,7 +344,7 @@ func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
 			return ctx, err
 		}
 		err = wait.For(
-			xconditions.New(r).ManagedResourceConditionMatch(
+			xconditions.New(r).ProviderConditionMatch(
 				&provider,
 				pkgv1.TypeHealthy,
 				corev1.ConditionTrue,
@@ -405,7 +404,17 @@ func renderTemplate(tmpl string, data interface{}) (string, error) {
 func IgnoreErr(fn env.Func) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		if _, err := fn(ctx, cfg); err != nil {
-			klog.V(4).Info(err)
+			klog.V(4).Info("Ignored Err:", err)
+		}
+		return ctx, nil
+	}
+
+}
+
+func IgnoreMatchedErr(fn env.Func, errorMatcher func(err error) bool) env.Func {
+	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		if _, err := fn(ctx, cfg); err != nil && errorMatcher(err) {
+			klog.V(4).Info("Ignored Err:", err)
 		}
 		return ctx, nil
 	}
@@ -448,7 +457,7 @@ func AwaitCRDsEstablished(ctx context.Context, cfg *envconf.Config) (context.Con
 		return ctx, err
 	}
 
-	c := conditions.New(client)
+	c := xpconditions.New(client)
 	err = wait.For(
 		c.ResourcesMatch(&crds, crdIsEstablished), wait.WithTimeout(time.Minute),
 	)

@@ -1,4 +1,4 @@
-package xenvfuncs
+package xpenvfuncs
 
 import (
 	"context"
@@ -287,6 +287,28 @@ func TestIgnoreErr(t *testing.T) {
 	t.Run(
 		"no error thown", func(t *testing.T) {
 			conditionalFn := IgnoreErr(dummyErrFunc)
+			_, err := conditionalFn(nil, nil)
+			assert.NoError(t, err)
+		},
+	)
+}
+
+func TestIgnoreMatchedErr(t *testing.T) {
+	t.Run(
+		"no error thown", func(t *testing.T) {
+			conditionalFn := IgnoreMatchedErr(dummyErrFunc, func(err error) bool {
+				return false
+			})
+			_, err := conditionalFn(nil, nil)
+			assert.NoError(t, err)
+		},
+	)
+
+	t.Run(
+		"error thown", func(t *testing.T) {
+			conditionalFn := IgnoreMatchedErr(dummyErrFunc, func(err error) bool {
+				return true
+			})
 			_, err := conditionalFn(nil, nil)
 			assert.NoError(t, err)
 		},

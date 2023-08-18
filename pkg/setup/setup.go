@@ -14,7 +14,7 @@ import (
 
 	"github.com/maximilianbraun/xp-testing/pkg/envvar"
 	"github.com/maximilianbraun/xp-testing/pkg/images"
-	"github.com/maximilianbraun/xp-testing/pkg/xenvfuncs"
+	"github.com/maximilianbraun/xp-testing/pkg/xpenvfuncs"
 )
 
 const (
@@ -25,11 +25,12 @@ const (
 
 // ClusterSetup help with a default kind setup for crossplane, with crossplane and a provider
 type ClusterSetup struct {
-	Name             string
-	Images           images.ProviderImages
-	ControllerConfig *v1alpha1.ControllerConfig
-	SecretData       map[string]string
-	AddToSchemaFuncs []func(s *runtime.Scheme) error
+	Name              string
+	Images            images.ProviderImages
+	ControllerConfig  *v1alpha1.ControllerConfig
+	SecretData        map[string]string
+	AddToSchemaFuncs  []func(s *runtime.Scheme) error
+	CrossplaneVersion string
 }
 
 // Configure optionally creates the kind cluster and takes care about the rest of the setup,
@@ -54,29 +55,28 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 	// and create a namespace for the environment
 	testEnv.Setup(
 		envfuncs.CreateKindCluster(kindClusterName),
-		xenvfuncs.Conditional(xenvfuncs.InstallCrossplane(kindClusterName), firstSetup),
-		xenvfuncs.Conditional(
-			xenvfuncs.InstallCrossplaneProvider(
-				kindClusterName, xenvfuncs.InstallCrossplaneProviderOptions{
-					Name:             s.Name,
-					Package:          s.Images.Package,
-					ControllerImage:  s.Images.ControllerImage,
-					ControllerConfig: s.ControllerConfig,
-				},
-			), firstSetup,
-		),
-		xenvfuncs.ApplySecretInCrossplaneNamespace("secret", s.SecretData),
-		xenvfuncs.ApplyProviderConfig,
-		xenvfuncs.LoadSchemas(s.AddToSchemaFuncs...),
-		xenvfuncs.AwaitCRDsEstablished,
+		xpenvfuncs.Conditional(
+			xpenvfuncs.Compose(
+				xpenvfuncs.InstallCrossplane(kindClusterName, s.CrossplaneVersion),
+				xpenvfuncs.InstallCrossplaneProvider(
+					kindClusterName, xpenvfuncs.InstallCrossplaneProviderOptions{
+						Name:             s.Name,
+						Package:          s.Images.Package,
+						ControllerImage:  s.Images.ControllerImage,
+						ControllerConfig: s.ControllerConfig,
+					}),
+				xpenvfuncs.ApplySecretInCrossplaneNamespace("secret", s.SecretData),
+			), firstSetup),
+		xpenvfuncs.ApplyProviderConfig,
+		xpenvfuncs.LoadSchemas(s.AddToSchemaFuncs...),
+		xpenvfuncs.AwaitCRDsEstablished,
 	)
 
 	// Finish uses pre-defined funcs to
 	// remove namespace, then delete cluster
 	testEnv.Finish(
-		xenvfuncs.DumpKindLogs(kindClusterName),
-		xenvfuncs.DeleteTestNamespace,
-		xenvfuncs.Conditional(envfuncs.DestroyKindCluster(kindClusterName), !reuseCluster),
+		xpenvfuncs.DumpKindLogs(kindClusterName),
+		xpenvfuncs.Conditional(envfuncs.DestroyKindCluster(kindClusterName), !reuseCluster),
 	)
 }
 
