@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/maximilianbraun/xp-testing/pkg/envvar"
+
 	"github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"github.com/vladimirvivien/gexe"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -12,7 +14,6 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 
-	"github.com/maximilianbraun/xp-testing/pkg/envvar"
 	"github.com/maximilianbraun/xp-testing/pkg/images"
 	"github.com/maximilianbraun/xp-testing/pkg/xpenvfuncs"
 )
@@ -40,7 +41,7 @@ type ClusterSetup struct {
 // * TESTCLUSTER_NAME: overwrites the cluster name
 func (s *ClusterSetup) Configure(testEnv env.Environment) {
 
-	reuseCluster := CheckEnvVarExists(reuseClusterEnv)
+	reuseCluster := envvar.CheckEnvVarExists(reuseClusterEnv)
 	log.V(4).Info("Reusing cluster: ", reuseCluster)
 	kindClusterName := clusterName(reuseCluster)
 	log.V(4).Info("Cluster name: ", kindClusterName)
@@ -81,15 +82,16 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 }
 
 func clusterName(reuseCluster bool) string {
-	var kindClusterName string
-	if CheckEnvVarExists(clusterNameEnv) {
-		kindClusterName = envvar.GetOrPanic(clusterNameEnv)
-	} else if reuseCluster {
-		kindClusterName = defaultPrefix
-	} else {
-		kindClusterName = envvar.GetOrDefault(clusterNameEnv, envconf.RandomName(defaultPrefix, 10))
+
+	if envvar.CheckEnvVarExists(clusterNameEnv) {
+		return os.Getenv(clusterNameEnv)
 	}
-	return kindClusterName
+
+	if reuseCluster {
+		return defaultPrefix
+	}
+
+	return envconf.RandomName(defaultPrefix, 10)
 }
 
 // TODO: Maybe part of the k8s-e2e framework?
@@ -102,10 +104,4 @@ func clusterExists(name string) bool {
 		}
 	}
 	return false
-}
-
-// CheckEnvVarExists returns if a environment variable exists
-func CheckEnvVarExists(existsKey string) bool {
-	_, found := os.LookupEnv(existsKey)
-	return found
 }

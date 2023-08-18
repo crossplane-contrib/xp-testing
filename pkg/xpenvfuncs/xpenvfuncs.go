@@ -411,6 +411,7 @@ func IgnoreErr(fn env.Func) env.Func {
 
 }
 
+// IgnoreMatchedErr checks if a result of fn() returns an error and if the error matches result of errorMatcher() ignores the error to continue with execution
 func IgnoreMatchedErr(fn env.Func, errorMatcher func(err error) bool) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		if _, err := fn(ctx, cfg); err != nil && errorMatcher(err) {

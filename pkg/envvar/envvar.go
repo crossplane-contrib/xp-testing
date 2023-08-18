@@ -31,3 +31,9 @@ func getOrDefault(key string, defaultFn func(string) string) string {
 
 	return defaultFn(key)
 }
+
+// CheckEnvVarExists returns if a environment variable exists
+func CheckEnvVarExists(existsKey string) bool {
+	_, found := os.LookupEnv(existsKey)
+	return found
+}

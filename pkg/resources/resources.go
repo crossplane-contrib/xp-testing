@@ -3,12 +3,13 @@ package resources
 import (
 	"context"
 	"fmt"
-	"github.com/maximilianbraun/xp-testing/pkg/xpconditions"
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/maximilianbraun/xp-testing/pkg/xpconditions"
 
 	crossplanev1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/samber/lo"
@@ -310,14 +311,18 @@ type ResourceTestConfig struct {
 	ResourceDirectory string
 }
 
+// NewResourceTestConfig constructs a simple version of ResourceTestConfig
 func NewResourceTestConfig(obj k8s.Object, kind string) *ResourceTestConfig {
 	return &ResourceTestConfig{Kind: kind, Obj: obj, AdditionalSteps: nil, ResourceDirectory: DefaultCRFolder(kind)}
 
 }
 
+// DefaultCRFolder returns a relative path to a folder where CR's for tests are suspected
 func (r *ResourceTestConfig) DefaultCRFolder() string {
-	return path.Join("./crs", r.Kind)
+	return DefaultCRFolder(r.Kind)
 }
+
+// DefaultCRFolder returns a relative path to a folder where CR's for tests are suspected
 func DefaultCRFolder(kind string) string {
 	return path.Join("./crs", kind)
 }

@@ -3,6 +3,7 @@ package xpconditions
 import (
 	"context"
 	"encoding/json"
+
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
@@ -48,6 +49,7 @@ func (c *Conditions) ProviderConditionMatch(
 	}
 }
 
+// IsManagedResourceReadyAndReady returns if a managed resource has condtions Synced = True and Ready = True
 func (c *Conditions) IsManagedResourceReadyAndReady(object k8s.Object) bool {
 
 	managed := convertToManaged(object)
@@ -85,6 +87,7 @@ func managedCheckCondition(o resource.Managed, conditionType xpv1.ConditionType,
 	return want == got.Status
 }
 
+// DummyManaged acts as a fake / dummy to allow generic checks on any managed resource
 type DummyManaged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
