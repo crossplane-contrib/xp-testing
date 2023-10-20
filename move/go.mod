@@ -1,4 +1,4 @@
-module github.com/maximilianbraun/xp-testing
+module github.com/crossplane-contrib/xp-testing
 
 go 1.20
 

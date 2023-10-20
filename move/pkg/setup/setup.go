@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/maximilianbraun/xp-testing/pkg/envvar"
+	"github.com/crossplane-contrib/xp-testing/pkg/envvar"
 
 	"github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"github.com/vladimirvivien/gexe"
@@ -14,8 +14,8 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 
-	"github.com/maximilianbraun/xp-testing/pkg/images"
-	"github.com/maximilianbraun/xp-testing/pkg/xpenvfuncs"
+	"github.com/crossplane-contrib/xp-testing/pkg/images"
+	"github.com/crossplane-contrib/xp-testing/pkg/xpenvfuncs"
 )
 
 const (

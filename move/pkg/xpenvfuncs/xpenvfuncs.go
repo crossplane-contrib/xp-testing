@@ -30,12 +30,12 @@ import (
 	"sigs.k8s.io/e2e-framework/third_party/helm"
 	"sigs.k8s.io/kind/pkg/cluster"
 
-	resHelper "github.com/maximilianbraun/xp-testing/pkg/resources"
-	xconditions "github.com/maximilianbraun/xp-testing/pkg/xpconditions"
+	resHelper "github.com/crossplane-contrib/xp-testing/pkg/resources"
+	xconditions "github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 
-	"github.com/maximilianbraun/xp-testing/internal/docker"
-	"github.com/maximilianbraun/xp-testing/internal/xpkg"
-	"github.com/maximilianbraun/xp-testing/pkg/xpconditions"
+	"github.com/crossplane-contrib/xp-testing/internal/docker"
+	"github.com/crossplane-contrib/xp-testing/internal/xpkg"
+	"github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 )
 
 const crsCrossplaneCacheVolumeTemplate = `apiVersion: v1

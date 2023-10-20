@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/maximilianbraun/xp-testing/pkg/envvar"
+	"github.com/crossplane-contrib/xp-testing/pkg/envvar"
 )
 
 const (

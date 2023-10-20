@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximilianbraun/xp-testing/pkg/xpconditions"
+	"github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 
 	crossplanev1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/samber/lo"
