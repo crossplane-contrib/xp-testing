@@ -4,7 +4,7 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnableVerboseLogging(t *testing.T) {
@@ -14,7 +14,7 @@ func TestEnableVerboseLogging(t *testing.T) {
 			EnableVerboseLogging(nil)
 
 			verbseFlag := flag.Lookup("v")
-			assert.Equal(t, verbseFlag.Value.String(), "4")
+			require.Equal(t, "4", verbseFlag.Value.String())
 		},
 	)
 	t.Run(
@@ -24,7 +24,7 @@ func TestEnableVerboseLogging(t *testing.T) {
 			EnableVerboseLogging(ptr(10))
 
 			verbseFlag := flag.Lookup("v")
-			assert.Equal(t, verbseFlag.Value.String(), "10")
+			require.Equal(t, "10", verbseFlag.Value.String())
 		},
 	)
 }

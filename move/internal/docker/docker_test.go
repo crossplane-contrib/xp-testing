@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSave(t *testing.T) {
@@ -74,17 +74,17 @@ func TestSave(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			runDocker = func(command string, options ...string) error {
-				assert.Equal(t, "save", command)
-				assert.Equal(t, test.expects.options, options)
+				require.Equal(t, "save", command)
+				require.Equal(t, test.expects.options, options)
 				return test.args.returnError
 			}
 
 			err := Save(test.args.image, test.args.target)
 
 			if len(test.expects.errorMessage) == 0 {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.EqualError(t, err, test.expects.errorMessage)
+				require.EqualError(t, err, test.expects.errorMessage)
 			}
 		})
 	}
@@ -167,17 +167,17 @@ func TestCp(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			runDocker = func(command string, options ...string) error {
-				assert.Equal(t, "cp", command)
-				assert.Equal(t, test.expects.options, options)
+				require.Equal(t, "cp", command)
+				require.Equal(t, test.expects.options, options)
 				return test.args.returnError
 			}
 
 			err := Cp(test.args.source, test.args.target)
 
 			if len(test.expects.errorMessage) == 0 {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.EqualError(t, err, test.expects.errorMessage)
+				require.EqualError(t, err, test.expects.errorMessage)
 			}
 		})
 	}
@@ -263,17 +263,17 @@ func TestExec(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			runDocker = func(command string, options ...string) error {
-				assert.Equal(t, "exec", command)
-				assert.Equal(t, test.expects.options, options)
+				require.Equal(t, "exec", command)
+				require.Equal(t, test.expects.options, options)
 				return test.args.returnError
 			}
 
 			err := Exec(test.args.container, test.args.command, test.args.options...)
 
 			if len(test.expects.errorMessage) == 0 {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else {
-				assert.EqualError(t, err, test.expects.errorMessage)
+				require.EqualError(t, err, test.expects.errorMessage)
 			}
 		})
 	}

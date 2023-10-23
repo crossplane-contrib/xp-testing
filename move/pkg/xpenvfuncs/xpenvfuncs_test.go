@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 )
@@ -31,8 +31,8 @@ func TestCompose(t *testing.T) {
 
 			ctx, err := Compose()(pctx, nil)
 
-			assert.NoError(t, err)
-			assert.Equal(t, pctx, ctx)
+			require.NoError(t, err)
+			require.Equal(t, pctx, ctx)
 		},
 	)
 
@@ -46,15 +46,15 @@ func TestCompose(t *testing.T) {
 			ctx, err := Compose(
 				func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 					invoked = true
-					assert.Equal(t, pctx, ctx)
-					assert.Equal(t, pcfg, cfg)
+					require.Equal(t, pctx, ctx)
+					require.Equal(t, pcfg, cfg)
 					return ctx, nil
 				},
 			)(pctx, pcfg)
 
-			assert.True(t, invoked)
-			assert.NoError(t, err)
-			assert.Equal(t, pctx, ctx)
+			require.True(t, invoked)
+			require.NoError(t, err)
+			require.Equal(t, pctx, ctx)
 		},
 	)
 
@@ -68,8 +68,8 @@ func TestCompose(t *testing.T) {
 				incEnvFunc(&invocations),
 			)(context.Background(), &envconf.Config{})
 
-			assert.NoError(t, err)
-			assert.Equal(t, 3, invocations)
+			require.NoError(t, err)
+			require.Equal(t, 3, invocations)
 		},
 	)
 
@@ -84,14 +84,14 @@ func TestCompose(t *testing.T) {
 				incEnvFunc(&invocations),
 			)(context.Background(), &envconf.Config{})
 
-			assert.EqualError(t, err, "stop here")
-			assert.Equal(t, 2, invocations)
+			require.EqualError(t, err, "stop here")
+			require.Equal(t, 2, invocations)
 		},
 	)
 }
 
 func TestGetClusterControlPlaneName(t *testing.T) {
-	assert.Equal(t, "my-cluster-control-plane", getClusterControlPlaneName("my-cluster"))
+	require.Equal(t, "my-cluster-control-plane", getClusterControlPlaneName("my-cluster"))
 }
 
 func TestRenderTemplate(t *testing.T) {
@@ -238,15 +238,15 @@ spec:
 	for _, test := range tests {
 		t.Run(
 			test.description, func(t *testing.T) {
-				assert.True(t, true)
+				require.True(t, true)
 				rendered, err := renderTemplate(test.args.template, test.args.data)
 
 				if len(test.expects.errorMessage) == 0 {
-					if assert.NoError(t, err) {
-						assert.Equal(t, test.expects.rendered, rendered)
+					if err == nil {
+						require.Equal(t, test.expects.rendered, rendered)
 					}
 				} else {
-					assert.Error(t, err)
+					require.Error(t, err)
 				}
 			},
 		)
@@ -261,7 +261,7 @@ func TestDummyErr(t *testing.T) {
 	t.Run(
 		"dummyErrFunc returns error", func(t *testing.T) {
 			_, err := dummyErrFunc(nil, nil)
-			assert.Error(t, err)
+			require.Error(t, err)
 		},
 	)
 }
@@ -271,14 +271,14 @@ func TestConditional(t *testing.T) {
 		"executes", func(t *testing.T) {
 			conditionalFn := Conditional(dummyErrFunc, true)
 			_, err := conditionalFn(nil, nil)
-			assert.Error(t, err)
+			require.Error(t, err)
 		},
 	)
 	t.Run(
 		"doesnt execute", func(t *testing.T) {
 			conditionalFn := Conditional(dummyErrFunc, false)
 			_, err := conditionalFn(nil, nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		},
 	)
 }
@@ -288,7 +288,7 @@ func TestIgnoreErr(t *testing.T) {
 		"no error thown", func(t *testing.T) {
 			conditionalFn := IgnoreErr(dummyErrFunc)
 			_, err := conditionalFn(nil, nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		},
 	)
 }
@@ -300,7 +300,7 @@ func TestIgnoreMatchedErr(t *testing.T) {
 				return false
 			})
 			_, err := conditionalFn(nil, nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		},
 	)
 
@@ -310,7 +310,7 @@ func TestIgnoreMatchedErr(t *testing.T) {
 				return true
 			})
 			_, err := conditionalFn(nil, nil)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		},
 	)
 }

@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const csdProvider = `apiVersion: pkg.crossplane.io/v1
@@ -22,7 +22,7 @@ spec:
 
 func returnStaticXPKG(t *testing.T, expectedImage string, returnContent string, returnError error) func(string, string) error {
 	return func(image string, path string) error {
-		assert.Equal(t, expectedImage, image)
+		require.Equal(t, expectedImage, image)
 
 		if returnError != nil {
 			return returnError
@@ -84,11 +84,11 @@ func TestFetchPackageContent(t *testing.T) {
 			pkgContent, err := FetchPackageContent(test.args.crossplanePackage)
 
 			if len(test.expects.errorMessage) == 0 {
-				if assert.NoError(t, err) {
-					assert.Equal(t, test.expects.crossplanePackageContent, pkgContent)
+				if err == nil {
+					require.Equal(t, test.expects.crossplanePackageContent, pkgContent)
 				}
 			} else {
-				assert.EqualError(t, err, test.expects.errorMessage)
+				require.EqualError(t, err, test.expects.errorMessage)
 			}
 		})
 	}
@@ -135,17 +135,17 @@ func TestSavePackage(t *testing.T) {
 		t.Run(test.description, func(t *testing.T) {
 			extractContainerImage = returnStaticXPKG(t, test.args.crossplanePackage, test.args.returnContent, test.args.returnError)
 
-			if tmpFile, err := os.CreateTemp("", "test"); assert.NoError(t, err) {
+			if tmpFile, err := os.CreateTemp("", "test"); err == nil {
 				defer os.Remove(tmpFile.Name())
 
-				err := SavePackage(test.args.crossplanePackage, tmpFile.Name())
+				err = SavePackage(test.args.crossplanePackage, tmpFile.Name())
 
 				if len(test.expects.errorMessage) == 0 {
-					if assert.NoError(t, err) {
+					if err == nil {
 						assertSHA256(t, tmpFile.Name(), test.expects.fileChecksum)
 					}
 				} else {
-					assert.EqualError(t, err, test.expects.errorMessage)
+					require.EqualError(t, err, test.expects.errorMessage)
 				}
 			}
 		})
@@ -153,12 +153,12 @@ func TestSavePackage(t *testing.T) {
 }
 
 func assertSHA256(t *testing.T, file string, expectedSHA256 string) {
-	if f, err := os.Open(file); assert.NoError(t, err) {
+	if f, err := os.Open(file); err == nil {
 		defer f.Close()
 		hasher := sha256.New()
 
-		if _, err := io.Copy(hasher, f); assert.NoError(t, err) {
-			assert.Equal(t, expectedSHA256, hex.EncodeToString(hasher.Sum(nil)))
+		if _, err := io.Copy(hasher, f); err == nil {
+			require.Equal(t, expectedSHA256, hex.EncodeToString(hasher.Sum(nil)))
 		}
 	}
 }

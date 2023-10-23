@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var someName = "Bar"
@@ -66,9 +66,9 @@ func Test_clusterName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.args.clusterNameEnvValue == nil {
-				assert.NoError(t, os.Unsetenv(clusterNameEnv))
+				require.NoError(t, os.Unsetenv(clusterNameEnv))
 			} else {
-				assert.NoError(t, os.Setenv(clusterNameEnv, *tt.args.clusterNameEnvValue))
+				require.NoError(t, os.Setenv(clusterNameEnv, *tt.args.clusterNameEnvValue))
 			}
 			if got := clusterName(tt.args.reuseCluster); !tt.matcher(got) {
 				t.Errorf("clusterName() = %v; matcher returned error", got)
