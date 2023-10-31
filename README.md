@@ -1,14 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-# xp-testing
-=======
-# xp-testiing
->>>>>>> 352ec62 (Initial commit)
-=======
-# xp-testing
->>>>>>> 478ccae (Update README.md)
-=======
 # End-to-end test framework for Crossplane providers
 
  `xp-testing` is a library enabling end-to-end tests for Crossplane providers, based on 
@@ -75,4 +64,3 @@ xp-testing is under the Apache 2.0 license.
 
 Initially developed by [v0lkc](https://github.com/v0lkc), [mirzakopic](https://github.com/mirzakopic) and their team 
 at [SAP](https://github.com/SAP/).
->>>>>>> 1387da7 (chore: README.md)
