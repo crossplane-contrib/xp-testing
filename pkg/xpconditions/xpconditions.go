@@ -33,8 +33,8 @@ func (c *Conditions) ProviderConditionMatch(
 	provider k8s.Object,
 	conditionType xpv1.ConditionType,
 	conditionStatus corev1.ConditionStatus,
-) apimachinerywait.ConditionFunc {
-	return func() (done bool, err error) {
+) apimachinerywait.ConditionWithContextFunc {
+	return func(ctx context.Context) (done bool, err error) {
 		klog.V(4).Infof("Awaiting provider %s to be ready", provider.GetName())
 		if err := c.resources.Get(context.TODO(), provider.GetName(), provider.GetNamespace(), provider); err != nil {
 			return false, err
@@ -76,7 +76,7 @@ func convertToManaged(object k8s.Object) resource.Managed {
 // ManagedResourcesReadyAndReady checks if a list of ManagedResources has a matching condition
 func (c *Conditions) ManagedResourcesReadyAndReady(
 	list k8s.ObjectList,
-) apimachinerywait.ConditionFunc {
+) apimachinerywait.ConditionWithContextFunc {
 	return c.Condition.ResourcesMatch(list, c.IsManagedResourceReadyAndReady)
 }
 
@@ -87,14 +87,16 @@ func managedCheckCondition(o resource.Managed, conditionType xpv1.ConditionType,
 	return want == got.Status
 }
 
+var _ resource.Managed = &DummyManaged{}
+
 // DummyManaged acts as a fake / dummy to allow generic checks on any managed resource
 type DummyManaged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	resource.ProviderReferencer
 	resource.ProviderConfigReferencer
 	resource.ConnectionSecretWriterTo
 	resource.ConnectionDetailsPublisherTo
+	resource.Manageable
 	resource.Orphanable
 	xpv1.ConditionedStatus `json:"status"`
 }
