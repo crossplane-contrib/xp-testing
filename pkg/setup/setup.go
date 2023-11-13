@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/envvar"
-
 	"github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"github.com/vladimirvivien/gexe"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -13,6 +12,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
+	"sigs.k8s.io/e2e-framework/support/kind"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/images"
 	"github.com/crossplane-contrib/xp-testing/pkg/xpenvfuncs"
@@ -43,10 +43,10 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 
 	reuseCluster := envvar.CheckEnvVarExists(reuseClusterEnv)
 	log.V(4).Info("Reusing cluster: ", reuseCluster)
-	kindClusterName := clusterName(reuseCluster)
-	log.V(4).Info("Cluster name: ", kindClusterName)
+	clusterName := clusterName(reuseCluster)
+	log.V(4).Info("Cluster name: ", clusterName)
 	firstSetup := true
-	if reuseCluster && clusterExists(kindClusterName) {
+	if reuseCluster && clusterExists(clusterName) {
 		firstSetup = false
 	}
 
@@ -54,13 +54,14 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 
 	// Setup uses pre-defined funcs to create kind cluster
 	// and create a namespace for the environment
+	provider := kind.NewProvider()
 	testEnv.Setup(
-		envfuncs.CreateKindCluster(kindClusterName),
+		envfuncs.CreateCluster(provider, clusterName),
 		xpenvfuncs.Conditional(
 			xpenvfuncs.Compose(
-				xpenvfuncs.InstallCrossplane(kindClusterName, s.CrossplaneVersion),
+				xpenvfuncs.InstallCrossplane(clusterName, s.CrossplaneVersion),
 				xpenvfuncs.InstallCrossplaneProvider(
-					kindClusterName, xpenvfuncs.InstallCrossplaneProviderOptions{
+					clusterName, xpenvfuncs.InstallCrossplaneProviderOptions{
 						Name:             s.Name,
 						Package:          s.Images.Package,
 						ControllerImage:  s.Images.ControllerImage,
@@ -76,8 +77,8 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 	// Finish uses pre-defined funcs to
 	// remove namespace, then delete cluster
 	testEnv.Finish(
-		xpenvfuncs.DumpKindLogs(kindClusterName),
-		xpenvfuncs.Conditional(envfuncs.DestroyKindCluster(kindClusterName), !reuseCluster),
+		xpenvfuncs.DumpKindLogs(clusterName),
+		xpenvfuncs.Conditional(envfuncs.DestroyCluster(clusterName), !reuseCluster),
 	)
 }
 

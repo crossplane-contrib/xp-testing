@@ -36,7 +36,7 @@ func (c *Conditions) ProviderConditionMatch(
 ) apimachinerywait.ConditionWithContextFunc {
 	return func(ctx context.Context) (done bool, err error) {
 		klog.V(4).Infof("Awaiting provider %s to be ready", provider.GetName())
-		if err := c.resources.Get(context.TODO(), provider.GetName(), provider.GetNamespace(), provider); err != nil {
+		if err := c.resources.Get(ctx, provider.GetName(), provider.GetNamespace(), provider); err != nil {
 			return false, err
 		}
 		for _, cond := range provider.(*pkgv1.Provider).Status.Conditions {
@@ -77,7 +77,7 @@ func convertToManaged(object k8s.Object) resource.Managed {
 func (c *Conditions) ManagedResourcesReadyAndReady(
 	list k8s.ObjectList,
 ) apimachinerywait.ConditionWithContextFunc {
-	return c.Condition.ResourcesMatch(list, c.IsManagedResourceReadyAndReady)
+	return c.ResourcesMatch(list, c.IsManagedResourceReadyAndReady)
 }
 
 func managedCheckCondition(o resource.Managed, conditionType xpv1.ConditionType, want corev1.ConditionStatus) bool {

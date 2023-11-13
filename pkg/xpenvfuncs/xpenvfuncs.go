@@ -101,7 +101,7 @@ func InstallCrossplane(clusterName string, crossplaneVersion string) env.Func {
 		envfuncs.CreateNamespace(CrossplaneNamespace),
 		setupCrossplanePackageCache(clusterName, cacheName),
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-			kindCluster, ok := envfuncs.GetKindClusterFromContext(ctx, clusterName)
+			kindCluster, ok := envfuncs.GetClusterFromContext(ctx, clusterName)
 			if !ok {
 				return ctx, fmt.Errorf("install crossplane func: cluster '%s' doesn't exist", clusterName)
 			}
