@@ -3,13 +3,14 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/vladimirvivien/gexe"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
+	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/support/kind"
 
 	xpv1alpha1 "github.com/crossplane/crossplane/apis/pkg/v1alpha1"
@@ -30,6 +31,9 @@ func TestMain(m *testing.M) {
 	imgs := images.ProviderImages{
 		Package: "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
 	}
+	imgs.ControllerImage = &imgs.Package
+
+	// We pull the image here, usually this would have been done by the build tool
 	pullPackageOrPanic(imgs.Package)
 
 	// Enhance interface for one- based providers
@@ -41,10 +45,19 @@ func TestMain(m *testing.M) {
 				Image: &imgs.Package,
 			},
 		},
+		ProviderName:      "provider-nop",
 		CrossplaneVersion: "1.14.0",
+		ControllerConfig: &xpv1alpha1.ControllerConfig{
+			Spec: xpv1alpha1.ControllerConfigSpec{
+				Image: &imgs.Package,
+			},
+		},
 	}
 	clusterSetup.PostCreate(func(clusterName string) env.Func {
-		return envfuncs.LoadImageToCluster(clusterName, imgs.Package)
+		return func(ctx context.Context, config *envconf.Config) (context.Context, error) {
+			klog.V(4).Infof("Some function running after the cluster %s has been created", clusterName)
+			return ctx, nil
+		}
 	})
 	_ = clusterSetup.Configure(testenv, &kind.Cluster{})
 	os.Exit(testenv.Run(m))
@@ -54,7 +67,7 @@ func pullPackageOrPanic(image string) {
 	klog.Info("Pulling %s", image)
 	runner := gexe.New()
 	p := runner.RunProc(fmt.Sprintf("docker pull %s", image))
-	klog.Info(p.Out())
+	klog.V(4).Info(p.Out())
 	if p.Err() != nil {
 		panic(fmt.Errorf("docker pull %v failed: %s: %s", image, p.Err(), p.Result()))
 	}

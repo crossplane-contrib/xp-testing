@@ -36,7 +36,6 @@ func Exec(container string, command string, options ...string) error {
 
 var runDocker = func(command string, options ...string) error {
 	proc := gexe.RunProc(fmt.Sprintf("docker %s %s", command, strings.Join(options, " ")))
-
 	if proc.ExitCode() != 0 {
 		return fmt.Errorf("failed to execute 'docker %s': %s", command, proc.Result())
 	}
