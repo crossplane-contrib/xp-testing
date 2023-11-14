@@ -17,5 +17,5 @@ build:
 	go build -v ./...
 
 .PHONY: all
-all: lint build test
+all: lint build test e2e
 

@@ -90,8 +90,10 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 	return name
 }
 
+// ClusterAwareFunc are functions which create env.Func and have the clusters name as context
 type ClusterAwareFunc = func(clusterName string) env.Func
 
+// PostCreate registers ClusterAwareFunc to run after Cluster creation
 func (s *ClusterSetup) PostCreate(funcs ...ClusterAwareFunc) {
 	s.postSetupFuncs = funcs
 }

@@ -38,14 +38,8 @@ func TestMain(m *testing.M) {
 
 	// Enhance interface for one- based providers
 	clusterSetup := setup.ClusterSetup{
-		ProviderName: "nop",
-		Images:       imgs,
-		ControllerConfig: &xpv1alpha1.ControllerConfig{
-			Spec: xpv1alpha1.ControllerConfigSpec{
-				Image: &imgs.Package,
-			},
-		},
 		ProviderName:      "provider-nop",
+		Images:            imgs,
 		CrossplaneVersion: "1.14.0",
 		ControllerConfig: &xpv1alpha1.ControllerConfig{
 			Spec: xpv1alpha1.ControllerConfigSpec{
@@ -69,6 +63,6 @@ func pullPackageOrPanic(image string) {
 	p := runner.RunProc(fmt.Sprintf("docker pull %s", image))
 	klog.V(4).Info(p.Out())
 	if p.Err() != nil {
-		panic(fmt.Errorf("docker pull %v failed: %s: %s", image, p.Err(), p.Result()))
+		panic(fmt.Errorf("docker pull %v failed: %w: %s", image, p.Err(), p.Result()))
 	}
 }
