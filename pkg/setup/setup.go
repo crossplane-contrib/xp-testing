@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -39,14 +40,16 @@ type ClusterSetup struct {
 // * E2E_REUSE_CLUSTER: if set, the cluster, crossplane and provider will be reused and not deleted after test.
 // If set, CLUSTER_NAME will be ignored
 // * TESTCLUSTER_NAME: overwrites the cluster name
-func (s *ClusterSetup) Configure(testEnv env.Environment) {
+// Currently requires a kind.Cluster, only for kind we can detect if a cluster is reusable
+// nolint:interfacer
+func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster) {
 
 	reuseCluster := envvar.CheckEnvVarExists(reuseClusterEnv)
 	log.V(4).Info("Reusing cluster: ", reuseCluster)
-	clusterName := clusterName(reuseCluster)
-	log.V(4).Info("Cluster name: ", clusterName)
+	name := clusterName(reuseCluster)
+	log.V(4).Info("Cluster name: ", name)
 	firstSetup := true
-	if reuseCluster && clusterExists(clusterName) {
+	if reuseCluster && kindClusterExists(name) {
 		firstSetup = false
 	}
 
@@ -54,14 +57,13 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 
 	// Setup uses pre-defined funcs to create kind cluster
 	// and create a namespace for the environment
-	provider := kind.NewProvider()
 	testEnv.Setup(
-		envfuncs.CreateCluster(provider, clusterName),
+		envfuncs.CreateCluster(cluster, name),
 		xpenvfuncs.Conditional(
 			xpenvfuncs.Compose(
-				xpenvfuncs.InstallCrossplane(clusterName, s.CrossplaneVersion),
+				xpenvfuncs.InstallCrossplane(name, s.CrossplaneVersion),
 				xpenvfuncs.InstallCrossplaneProvider(
-					clusterName, xpenvfuncs.InstallCrossplaneProviderOptions{
+					name, xpenvfuncs.InstallCrossplaneProviderOptions{
 						Name:             s.Name,
 						Package:          s.Images.Package,
 						ControllerImage:  s.Images.ControllerImage,
@@ -77,8 +79,8 @@ func (s *ClusterSetup) Configure(testEnv env.Environment) {
 	// Finish uses pre-defined funcs to
 	// remove namespace, then delete cluster
 	testEnv.Finish(
-		xpenvfuncs.DumpKindLogs(clusterName),
-		xpenvfuncs.Conditional(envfuncs.DestroyCluster(clusterName), !reuseCluster),
+		xpenvfuncs.DumpLogs(name, "post-tests"),
+		xpenvfuncs.Conditional(envfuncs.DestroyCluster(name), !reuseCluster),
 	)
 }
 
@@ -96,8 +98,9 @@ func clusterName(reuseCluster bool) string {
 }
 
 // TODO: Maybe part of the k8s-e2e framework?
-func clusterExists(name string) bool {
+func kindClusterExists(name string) bool {
 	e := gexe.New()
+	envfuncs.GetClusterFromContext(context.TODO(), name)
 	clusters := e.Run("kind get clusters")
 	for _, c := range strings.Split(clusters, "\n") {
 		if c == name {

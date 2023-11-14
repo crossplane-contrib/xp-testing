@@ -12,6 +12,8 @@ import (
 	"text/template"
 	"time"
 
+	resHelper "github.com/crossplane-contrib/xp-testing/pkg/resources"
+	xconditions "github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"github.com/pkg/errors"
@@ -28,10 +30,6 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 	"sigs.k8s.io/e2e-framework/third_party/helm"
-	"sigs.k8s.io/kind/pkg/cluster"
-
-	resHelper "github.com/crossplane-contrib/xp-testing/pkg/resources"
-	xconditions "github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 
 	"github.com/crossplane-contrib/xp-testing/internal/docker"
 	"github.com/crossplane-contrib/xp-testing/internal/xpkg"
@@ -82,16 +80,9 @@ spec:
 const (
 	helmRepoName = "e2e_crossplane-stable"
 	// CrossplaneNamespace the namespace crossplane will be installed to
-	CrossplaneNamespace = "crossplane-system"
-	clusterNameKey      = "clusterNameType"
+	CrossplaneNamespace   = "crossplane-system"
+	errNoClusterInContext = "could get get cluster with this name from context"
 )
-
-var (
-	// The default key to put the cluster name into context
-	defaultClusterKey = clusterNameType(clusterNameKey)
-)
-
-type clusterNameType string
 
 // InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster
 func InstallCrossplane(clusterName string, crossplaneVersion string) env.Func {
@@ -491,46 +482,23 @@ func crdIsEstablished(object k8s.Object) bool {
 	return false
 }
 
-// DumpKindLogs Dumps the logs of the cluster to `$PWD/logs` using kind export func
-func DumpKindLogs(clusterName string) env.Func {
+// DumpLogs Dumps the logs of the cluster to `$PWD/logs` using kind export func
+func DumpLogs(clusterName string, dir string) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-		provider := cluster.NewProvider()
-		dir, err := os.Getwd()
+
+		cluster, ok := envfuncs.GetClusterFromContext(ctx, clusterName)
+		if !ok {
+			return ctx, errors.New(errNoClusterInContext)
+		}
+		cur, err := os.Getwd()
 		if err != nil {
 			return ctx, err
 		}
-		effectivePath := path.Join(dir, "logs")
-		klog.Infof("Writing kind logs to %s", effectivePath)
-		err = provider.CollectLogs(clusterName, effectivePath)
+		dest := path.Join(cur, "logs", dir)
+		klog.Infof("Writing kind logs to %s", dest)
 
+		err = cluster.ExportLogs(ctx, dest)
 		return ctx, err
-	}
-}
-
-// DumpKubernetesLogs Dumps the logs of the cluster to `$PWD/logs-$identifier` using kind export func
-func DumpKubernetesLogs(ctx context.Context, identifier string) (context.Context, error) {
-	provider := cluster.NewProvider()
-	dir, err := os.Getwd()
-	if err != nil {
-		return ctx, err
-	}
-	clusterName, ok := ctx.Value(defaultClusterKey).(string)
-	if !ok {
-		return ctx, errors.New("cluster not found in test context")
-	}
-	effectivePath := path.Join(dir, fmt.Sprintf("logs-%s", identifier))
-	klog.Infof("Writing kind logs to %s", effectivePath)
-	err = provider.CollectLogs(clusterName, effectivePath)
-
-	return ctx, err
-}
-
-// SetClusterName Sets the name of the cluster into context to retrieve it by other functions
-func SetClusterName(clusterName string) env.Func {
-	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-		ctx = context.WithValue(ctx, defaultClusterKey, clusterName)
-
-		return ctx, nil
 	}
 }
 
