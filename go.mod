@@ -5,22 +5,24 @@ go 1.20
 require (
 	github.com/GoogleContainerTools/container-diff v0.17.0
 	github.com/crossplane/crossplane v1.11.5
-	github.com/crossplane/crossplane-runtime v0.19.2
+	github.com/crossplane/crossplane-runtime v0.20.1
+	github.com/google/go-cmp v0.5.9
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.4
 	github.com/vladimirvivien/gexe v0.2.0
-	k8s.io/api v0.26.3
-	k8s.io/apiextensions-apiserver v0.26.1
-	k8s.io/apimachinery v0.26.3
-	k8s.io/client-go v0.26.3
+	k8s.io/api v0.27.3
+	k8s.io/apiextensions-apiserver v0.27.3
+	k8s.io/apimachinery v0.27.3
+	k8s.io/client-go v0.27.3
 	k8s.io/klog/v2 v2.100.1
-	sigs.k8s.io/controller-runtime v0.14.6
+	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/e2e-framework v0.2.0
 	sigs.k8s.io/kind v0.20.0
 )
 
 require (
+	dario.cat/mergo v1.0.0 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
@@ -42,7 +44,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-containerregistry v0.16.1 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
@@ -93,6 +94,6 @@ require (
 
 replace github.com/crossplane/crossplane => github.com/crossplane/crossplane v1.11.5
 
-replace github.com/crossplane/crossplane-runtime => github.com/crossplane/crossplane-runtime v0.19.2
+replace github.com/crossplane/crossplane-runtime => github.com/crossplane/crossplane-runtime v0.20.1
 
 replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20190219180918-740349757396
