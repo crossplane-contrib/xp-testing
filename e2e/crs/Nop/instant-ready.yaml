@@ -1,0 +1,22 @@
+apiVersion: nop.crossplane.io/v1alpha1
+kind: NopResource
+metadata:
+  name: example
+spec:
+  forProvider:
+    conditionAfter:
+      - conditionStatus: "True"
+        conditionType: Ready
+        time: 1s
+    fields:
+      arrayField:
+        - stringField: cool
+      integerField: 42
+      objectField:
+        stringField: cool
+      stringField: cool
+  providerConfigRef:
+    name: default
+  writeConnectionSecretToRef:
+    name: nop-example-resource
+    namespace: crossplane-system

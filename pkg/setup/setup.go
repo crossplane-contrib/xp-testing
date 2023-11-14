@@ -27,12 +27,13 @@ const (
 
 // ClusterSetup help with a default kind setup for crossplane, with crossplane and a provider
 type ClusterSetup struct {
-	Name              string
+	ProviderName      string
 	Images            images.ProviderImages
 	ControllerConfig  *v1alpha1.ControllerConfig
 	SecretData        map[string]string
 	AddToSchemaFuncs  []func(s *runtime.Scheme) error
 	CrossplaneVersion string
+	postSetupFuncs    []ClusterAwareFunc
 }
 
 // Configure optionally creates the kind cluster and takes care about the rest of the setup,
@@ -42,7 +43,7 @@ type ClusterSetup struct {
 // * TESTCLUSTER_NAME: overwrites the cluster name
 // Currently requires a kind.Cluster, only for kind we can detect if a cluster is reusable
 // nolint:interfacer
-func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster) {
+func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster) string {
 
 	reuseCluster := envvar.CheckEnvVarExists(reuseClusterEnv)
 	log.V(4).Info("Reusing cluster: ", reuseCluster)
@@ -54,17 +55,22 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 	}
 
 	log.V(4).Info("Is first setup: ", firstSetup)
-
 	// Setup uses pre-defined funcs to create kind cluster
 	// and create a namespace for the environment
+
 	testEnv.Setup(
 		envfuncs.CreateCluster(cluster, name),
+	)
+	for _, claFunc := range s.postSetupFuncs {
+		testEnv.Setup(claFunc(name))
+	}
+	testEnv.Setup(
 		xpenvfuncs.Conditional(
 			xpenvfuncs.Compose(
 				xpenvfuncs.InstallCrossplane(name, s.CrossplaneVersion),
 				xpenvfuncs.InstallCrossplaneProvider(
 					name, xpenvfuncs.InstallCrossplaneProviderOptions{
-						Name:             s.Name,
+						Name:             s.ProviderName,
 						Package:          s.Images.Package,
 						ControllerImage:  s.Images.ControllerImage,
 						ControllerConfig: s.ControllerConfig,
@@ -73,8 +79,7 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 			), firstSetup),
 		xpenvfuncs.ApplyProviderConfig,
 		xpenvfuncs.LoadSchemas(s.AddToSchemaFuncs...),
-		xpenvfuncs.AwaitCRDsEstablished,
-	)
+		xpenvfuncs.AwaitCRDsEstablished)
 
 	// Finish uses pre-defined funcs to
 	// remove namespace, then delete cluster
@@ -82,6 +87,13 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 		xpenvfuncs.DumpLogs(name, "post-tests"),
 		xpenvfuncs.Conditional(envfuncs.DestroyCluster(name), !reuseCluster),
 	)
+	return name
+}
+
+type ClusterAwareFunc = func(clusterName string) env.Func
+
+func (s *ClusterSetup) PostCreate(funcs ...ClusterAwareFunc) {
+	s.postSetupFuncs = funcs
 }
 
 func clusterName(reuseCluster bool) string {
