@@ -90,6 +90,8 @@ github.com/crossplane/crossplane v1.14.0 h1:cfq1WXYQNl/O1/B+VK34cUziN24kJYgQ4z/2
 github.com/crossplane/crossplane v1.14.0/go.mod h1:3gHjPrttSWmVbq39OM6SCUAzsc8CV7HMW/3X2hkY3E4=
 github.com/crossplane/crossplane-runtime v1.14.0 h1:MFo93iOJLvYaMCaCoyH2vFWsHebdA1kv3QdOm7hcm5k=
 github.com/crossplane/crossplane-runtime v1.14.0/go.mod h1:aOP+5W2wKpvthVs3pFNbVOe1jwrKYbJho0ThGNCVz9o=
+github.com/crossplane/crossplane-runtime v1.14.2 h1:pV5JMzyzi/kcbeVBVPCat5MHH8zS94MBUapAyGx/Ry0=
+github.com/crossplane/crossplane-runtime v1.14.2/go.mod h1:aOP+5W2wKpvthVs3pFNbVOe1jwrKYbJho0ThGNCVz9o=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
