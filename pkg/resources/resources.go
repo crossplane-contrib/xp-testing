@@ -306,13 +306,13 @@ func AwaitResourceDeletionOrFail(ctx context.Context, t *testing.T, cfg *envconf
 // and then provides basic CRD tests for the resource.
 type ResourceTestConfig struct {
 	Kind              string
-	Obj               k8s.Object
+	Obj               *k8s.Object
 	AdditionalSteps   map[string]func(context.Context, *testing.T, *envconf.Config) context.Context
 	ResourceDirectory string
 }
 
 // NewResourceTestConfig constructs a simple version of ResourceTestConfig
-func NewResourceTestConfig(obj k8s.Object, kind string) *ResourceTestConfig {
+func NewResourceTestConfig(obj *k8s.Object, kind string) *ResourceTestConfig {
 	return &ResourceTestConfig{Kind: kind, Obj: obj, AdditionalSteps: nil, ResourceDirectory: DefaultCRFolder(kind)}
 
 }

@@ -22,3 +22,5 @@ go.work
 
 
 .idea
+
+e2e/logs
