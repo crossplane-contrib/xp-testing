@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/GoogleContainerTools/container-diff v0.17.0
-	github.com/crossplane/crossplane v1.14.1
+	github.com/crossplane/crossplane v1.14.2
 	github.com/crossplane/crossplane-runtime v1.14.2
 	github.com/google/go-cmp v0.6.0
 	github.com/pkg/errors v0.9.1
@@ -32,7 +32,7 @@ require (
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/cli v24.0.6+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v24.0.6+incompatible // indirect
+	github.com/docker/docker v24.0.7+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
