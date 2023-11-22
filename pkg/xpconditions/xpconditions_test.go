@@ -90,3 +90,68 @@ func Test_convertToManaged(t *testing.T) {
 		})
 	}
 }
+
+func Test_managedCheckCondition(t *testing.T) {
+	type args struct {
+		o             resource.Managed
+		conditionType xpv1.ConditionType
+		want          corev1.ConditionStatus
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "resolves an existing condition Ready",
+			args: args{
+				o: &DummyManaged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "example-resource",
+					},
+					ConditionedStatus: xpv1.ConditionedStatus{
+						Conditions: []xpv1.Condition{
+							{
+								Type:   xpv1.TypeReady,
+								Status: corev1.ConditionTrue,
+								Reason: xpv1.ReasonAvailable,
+							},
+						},
+					},
+				},
+				conditionType: xpv1.TypeReady,
+				want:          corev1.ConditionTrue,
+			},
+			want: true,
+		},
+		{
+			name: "resolves an existing condition Synced",
+			args: args{
+				o: &DummyManaged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "example-resource",
+					},
+					ConditionedStatus: xpv1.ConditionedStatus{
+						Conditions: []xpv1.Condition{
+							{
+								Type:   xpv1.TypeReady,
+								Status: corev1.ConditionTrue,
+								Reason: xpv1.ReasonAvailable,
+							},
+						},
+					},
+				},
+				conditionType: xpv1.TypeSynced,
+				want:          corev1.ConditionFalse,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := managedCheckCondition(tt.args.o, tt.args.conditionType, tt.args.want); got != tt.want {
+				t.Errorf("managedCheckCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
