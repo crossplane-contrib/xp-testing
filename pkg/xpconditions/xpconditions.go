@@ -36,17 +36,25 @@ func (c *Conditions) ProviderConditionMatch(
 ) apimachinerywait.ConditionWithContextFunc {
 	return func(ctx context.Context) (done bool, err error) {
 		klog.V(4).Infof("Awaiting provider %s to be ready", provider.GetName())
+
 		if err := c.resources.Get(ctx, provider.GetName(), provider.GetNamespace(), provider); err != nil {
 			return false, err
 		}
-		for _, cond := range provider.(*pkgv1.Provider).Status.Conditions {
-			klog.V(4).Infof("provider %s, condition: %s: %s", provider.GetName(), cond.Type, cond.Status)
-			if cond.Type == conditionType && cond.Status == conditionStatus {
-				done = true
-			}
-		}
-		return
+		p := provider.(*pkgv1.Provider)
+
+		res := awaitCondition(*p, conditionType, conditionStatus)
+		return res, nil
 	}
+}
+
+func awaitCondition(provider pkgv1.Provider, conditionType xpv1.ConditionType, conditionStatus corev1.ConditionStatus) bool {
+	for _, cond := range provider.Status.Conditions {
+		klog.V(4).Infof("provider %s, condition: %s: %s", provider.GetName(), cond.Type, cond.Status)
+		if cond.Type == conditionType && cond.Status == conditionStatus {
+			return true
+		}
+	}
+	return false
 }
 
 // IsManagedResourceReadyAndReady returns if a managed resource has condtions Synced = True and Ready = True

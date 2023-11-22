@@ -5,6 +5,7 @@ import (
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,6 +152,67 @@ func Test_managedCheckCondition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := managedCheckCondition(tt.args.o, tt.args.conditionType, tt.args.want); got != tt.want {
 				t.Errorf("managedCheckCondition() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConditions_awaitCondition(t *testing.T) {
+	type args struct {
+		provider        v1.Provider
+		conditionType   xpv1.ConditionType
+		conditionStatus corev1.ConditionStatus
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "existing condition, matches expectation",
+			args: args{
+				provider: v1.Provider{Status: v1.ProviderStatus{
+					ConditionedStatus: xpv1.ConditionedStatus{
+						Conditions: []xpv1.Condition{
+							{Type: xpv1.TypeReady, Status: corev1.ConditionTrue},
+						},
+					},
+				}},
+				conditionType:   xpv1.TypeReady,
+				conditionStatus: corev1.ConditionTrue,
+			},
+			want: true,
+		},
+		{
+			name: "existing condition, doesnt match expectation",
+			args: args{
+				provider: v1.Provider{Status: v1.ProviderStatus{
+					ConditionedStatus: xpv1.ConditionedStatus{
+						Conditions: []xpv1.Condition{
+							{Type: xpv1.TypeSynced, Status: corev1.ConditionTrue},
+							{Type: xpv1.TypeReady, Status: corev1.ConditionTrue},
+						},
+					},
+				}},
+				conditionType:   xpv1.TypeReady,
+				conditionStatus: corev1.ConditionFalse,
+			},
+			want: false,
+		},
+		{
+			name: "non existing condition, doesnt match expectation",
+			args: args{
+				provider:        v1.Provider{Status: v1.ProviderStatus{}},
+				conditionType:   xpv1.TypeReady,
+				conditionStatus: corev1.ConditionFalse,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := awaitCondition(tt.args.provider, tt.args.conditionType, tt.args.conditionStatus); got != tt.want {
+				t.Errorf("awaitCondition() = %v, want %v", got, tt.want)
 			}
 		})
 	}
