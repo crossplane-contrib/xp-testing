@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
 )
 
@@ -211,7 +212,12 @@ func TestConditions_awaitCondition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := awaitCondition(tt.args.provider, tt.args.conditionType, tt.args.conditionStatus); got != tt.want {
+			data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&tt.args.provider)
+			if err != nil {
+				t.Error(err)
+			}
+			unstr := unstructured.Unstructured{Object: data}
+			if got := awaitCondition(&unstr, tt.args.conditionType, tt.args.conditionStatus); got != tt.want {
 				t.Errorf("awaitCondition() = %v, want %v", got, tt.want)
 			}
 		})
