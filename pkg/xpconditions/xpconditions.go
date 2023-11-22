@@ -36,19 +36,19 @@ func New(r *resources.Resources) *Conditions {
 
 // ProviderConditionMatch checks if a Provider has a matching condition
 func (c *Conditions) ProviderConditionMatch(
-	provider k8s.Object,
+	name string,
 	conditionType xpv1.ConditionType,
 	conditionStatus corev1.ConditionStatus,
 ) apimachinerywait.ConditionWithContextFunc {
 	return func(ctx context.Context) (done bool, err error) {
-		klog.V(4).Infof("Awaiting provider %s to be ready", provider.GetName())
+		klog.V(4).Infof("Awaiting provider %s to be ready", name)
 
 		cl, err := dynamic.NewForConfig(c.resources.GetConfig())
 		if err != nil {
 			return false, err
 		}
 		res := cl.Resource(providerSchema)
-		providerObject, err := res.Get(ctx, provider.GetName(), metav1.GetOptions{})
+		providerObject, err := res.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, resource.IgnoreNotFound(err)
 		}

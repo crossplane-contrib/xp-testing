@@ -324,19 +324,13 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 
 func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-		provider := pkgv1.Provider{
-			ObjectMeta: metav1.ObjectMeta{Name: opts.Name},
-		}
 		r, err := resources.New(cfg.Client().RESTConfig())
 		if err != nil {
 			return ctx, err
 		}
-		if err := pkgv1.AddToScheme(r.GetScheme()); err != nil {
-			return ctx, err
-		}
 		err = wait.For(
 			xconditions.New(r).ProviderConditionMatch(
-				&provider,
+				opts.Name,
 				pkgv1.TypeHealthy,
 				corev1.ConditionTrue,
 			), wait.WithTimeout(time.Minute*5),
