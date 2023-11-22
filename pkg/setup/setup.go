@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/envvar"
-	"github.com/crossplane/crossplane/apis/pkg/v1alpha1"
+	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	"github.com/vladimirvivien/gexe"
 	"k8s.io/apimachinery/pkg/runtime"
 	log "k8s.io/klog/v2"
@@ -29,7 +29,7 @@ const (
 type ClusterSetup struct {
 	ProviderName      string
 	Images            images.ProviderImages
-	ControllerConfig  *v1alpha1.ControllerConfig
+	ControllerConfig  *vendored.ControllerConfig
 	SecretData        map[string]string
 	AddToSchemaFuncs  []func(s *runtime.Scheme) error
 	CrossplaneVersion string

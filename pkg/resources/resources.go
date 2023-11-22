@@ -11,7 +11,6 @@ import (
 
 	"github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 
-	crossplanev1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/samber/lo"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,6 +26,10 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/klient/wait/conditions"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
+)
+
+var (
+	providerSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1", Resource: "providers"}
 )
 
 // ImportResources gets the resources from dir
@@ -138,16 +141,15 @@ func DumpManagedResources(ctx context.Context, t *testing.T, cfg *envconf.Config
 }
 
 func dumpProviders(ctx context.Context, t *testing.T, client *resources.Resources) {
-	var providers crossplanev1.ProviderList
+	dynamiq := dynamic.NewForConfigOrDie(client.GetConfig())
 
-	if err := crossplanev1.AddToScheme(client.GetScheme()); err != nil {
+	res := dynamiq.Resource(providerSchema)
+	list, err := res.List(ctx, metav1.ListOptions{})
+	if err != nil {
 		t.Fatal(err)
+		return
 	}
-
-	if err := client.List(ctx, &providers); err != nil {
-		t.Fatal(err)
-	}
-	for _, provider := range providers.Items {
+	for _, provider := range list.Items {
 		t.Log(provider)
 	}
 }

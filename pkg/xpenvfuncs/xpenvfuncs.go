@@ -13,14 +13,16 @@ import (
 	"time"
 
 	resHelper "github.com/crossplane-contrib/xp-testing/pkg/resources"
+	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	xconditions "github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
-	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/e2e-framework/klient/decoder"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
@@ -82,6 +84,10 @@ const (
 	// CrossplaneNamespace the namespace crossplane will be installed to
 	CrossplaneNamespace   = "crossplane-system"
 	errNoClusterInContext = "could get get cluster with this name from context"
+)
+
+var (
+	controllerConfigSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1alpha1", Resource: "controllerconfigs"}
 )
 
 // InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster
@@ -159,7 +165,7 @@ type InstallCrossplaneProviderOptions struct {
 	Name             string
 	Package          string
 	ControllerImage  *string // TODO read from package
-	ControllerConfig *v1alpha1.ControllerConfig
+	ControllerConfig *vendored.ControllerConfig
 }
 
 // InstallCrossplaneProvider returns an env.Func that is used to
@@ -297,15 +303,27 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 
 		if opts.ControllerConfig != nil {
 			config := opts.ControllerConfig.DeepCopy()
+			config.TypeMeta.Kind = "ControllerConfig"
+			config.TypeMeta.APIVersion = controllerConfigSchema.GroupVersion().Identifier()
 			config.ObjectMeta = metav1.ObjectMeta{
 				Name: opts.Name,
 			}
 			data.ControllerConfig = opts.Name
-			res := cfg.Client().Resources()
-			if err := v1alpha1.AddToScheme(res.GetScheme()); err != nil {
-				return ctx, err
+			//res := cfg.Client().Resources()
+
+			//err := res.Create(ctx, config)
+
+			cl, err := dynamic.NewForConfig(cfg.Client().RESTConfig())
+			if err != nil {
+				return nil, err
 			}
-			err := res.Create(ctx, config)
+			res := cl.Resource(controllerConfigSchema)
+			data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(config)
+			if err != nil {
+				return nil, err
+			}
+			unstruc := unstructured.Unstructured{Object: data}
+			_, err = res.Create(ctx, &unstruc, metav1.CreateOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -331,7 +349,7 @@ func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
 		err = wait.For(
 			xconditions.New(r).ProviderConditionMatch(
 				opts.Name,
-				pkgv1.TypeHealthy,
+				"Healthy",
 				corev1.ConditionTrue,
 			), wait.WithTimeout(time.Minute*5),
 		)

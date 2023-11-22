@@ -8,12 +8,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	"github.com/vladimirvivien/gexe"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/support/kind"
 
-	xpv1alpha1 "github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/images"
@@ -41,8 +41,8 @@ func TestMain(m *testing.M) {
 		ProviderName:      "provider-nop",
 		Images:            imgs,
 		CrossplaneVersion: "1.14.0",
-		ControllerConfig: &xpv1alpha1.ControllerConfig{
-			Spec: xpv1alpha1.ControllerConfigSpec{
+		ControllerConfig: &vendored.ControllerConfig{
+			Spec: vendored.ControllerConfigSpec{
 				Image: &imgs.Package,
 			},
 		},
