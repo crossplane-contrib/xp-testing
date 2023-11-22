@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 }
 
 func pullPackageOrPanic(image string) {
-	klog.Info("Pulling %s", image)
+	klog.Info("Pulling ", image)
 	runner := gexe.New()
 	p := runner.RunProc(fmt.Sprintf("docker pull %s", image))
 	klog.V(4).Info(p.Out())
