@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	providerSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1", Resource: "provider"}
+	providerSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1", Resource: "providers"}
 )
 
 // Conditions helps with matching resources on conditions
@@ -50,7 +50,7 @@ func (c *Conditions) ProviderConditionMatch(
 		res := cl.Resource(providerSchema)
 		providerObject, err := res.Get(ctx, provider.GetName(), metav1.GetOptions{})
 		if err != nil {
-			return false, err
+			return false, resource.IgnoreNotFound(err)
 		}
 
 		result := awaitCondition(providerObject, conditionType, conditionStatus)
@@ -58,25 +58,22 @@ func (c *Conditions) ProviderConditionMatch(
 	}
 }
 
-func awaitCondition(unstrOb *unstructured.Unstructured, desiredType xpv1.ConditionType, desiredStatus corev1.ConditionStatus) bool {
+func awaitCondition(unstruc *unstructured.Unstructured, desiredType xpv1.ConditionType, desiredStatus corev1.ConditionStatus) bool {
 
-	statusObj, ok := unstrOb.Object["status"].(map[string]interface{})
-
-	if statusObj == nil || !ok {
-		klog.V(4).Infof("Object (%s) %s has no status", unstrOb.GroupVersionKind().String(), unstrOb.GetName())
+	slice, found, err := unstructured.NestedSlice(unstruc.Object, "status", "conditions")
+	if err != nil {
 		return false
 	}
-
-	conditions, ok := statusObj["conditions"].([]interface{})
-	if conditions == nil || !ok {
-		klog.V(4).Infof("Object (%s) %s has no conditions", unstrOb.GroupVersionKind().String(), unstrOb.GetName())
+	if !found {
+		klog.V(4).Infof("Object (%s) %s has no conditions", unstruc.GroupVersionKind().String(), unstruc.GetName())
 		return false
 	}
 
 	status := ""
-	for _, condition := range conditions {
+	for _, condition := range slice {
 		c := condition.(map[string]interface{})
-		if c["type"] == string(desiredType) {
+		curType := c["type"]
+		if curType == string(desiredType) {
 			status = c["status"].(string)
 		}
 	}
@@ -85,7 +82,7 @@ func awaitCondition(unstrOb *unstructured.Unstructured, desiredType xpv1.Conditi
 		matchedConditionStatus = true
 	}
 
-	klog.V(4).Infof("Object (%s) %s, condition: %s: %s", unstrOb.GroupVersionKind().String(), unstrOb.GetName(), desiredType, matchedConditionStatus)
+	klog.V(4).Infof("Object (%s) %s, condition: %s: %s", unstruc.GroupVersionKind().String(), unstruc.GetName(), desiredType, matchedConditionStatus)
 
 	return matchedConditionStatus
 }
@@ -99,13 +96,13 @@ func (c *Conditions) IsManagedResourceReadyAndReady(object k8s.Object) bool {
 }
 
 func convertToManaged(object k8s.Object) resource.Managed {
-	unstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
+	unstruc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
 	if err != nil {
 		return nil
 	}
 	var managed DummyManaged
 	err = runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructured, &managed)
+		FromUnstructured(unstruc, &managed)
 
 	if err != nil {
 		panic(err)

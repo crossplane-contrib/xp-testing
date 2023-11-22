@@ -5,12 +5,10 @@ import (
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
 )
 
@@ -160,7 +158,7 @@ func Test_managedCheckCondition(t *testing.T) {
 
 func TestConditions_awaitCondition(t *testing.T) {
 	type args struct {
-		provider        v1.Provider
+		obj             unstructured.Unstructured
 		conditionType   xpv1.ConditionType
 		conditionStatus corev1.ConditionStatus
 	}
@@ -172,13 +170,14 @@ func TestConditions_awaitCondition(t *testing.T) {
 		{
 			name: "existing condition, matches expectation",
 			args: args{
-				provider: v1.Provider{Status: v1.ProviderStatus{
-					ConditionedStatus: xpv1.ConditionedStatus{
-						Conditions: []xpv1.Condition{
-							{Type: xpv1.TypeReady, Status: corev1.ConditionTrue},
+				obj: unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"status": map[string]interface{}{
+							"conditions": []map[string]interface{}{
+								{"type": "Ready", "status": "True"}},
 						},
 					},
-				}},
+				},
 				conditionType:   xpv1.TypeReady,
 				conditionStatus: corev1.ConditionTrue,
 			},
@@ -187,14 +186,15 @@ func TestConditions_awaitCondition(t *testing.T) {
 		{
 			name: "existing condition, doesnt match expectation",
 			args: args{
-				provider: v1.Provider{Status: v1.ProviderStatus{
-					ConditionedStatus: xpv1.ConditionedStatus{
-						Conditions: []xpv1.Condition{
-							{Type: xpv1.TypeSynced, Status: corev1.ConditionTrue},
-							{Type: xpv1.TypeReady, Status: corev1.ConditionTrue},
+				obj: unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"Status": map[string]interface{}{
+							"Conditions": []map[string]interface{}{
+								{"Type": "Synced", "Status": "True"},
+								{"Type": "Ready", "Status": "False"}},
 						},
 					},
-				}},
+				},
 				conditionType:   xpv1.TypeReady,
 				conditionStatus: corev1.ConditionFalse,
 			},
@@ -203,7 +203,7 @@ func TestConditions_awaitCondition(t *testing.T) {
 		{
 			name: "non existing condition, doesnt match expectation",
 			args: args{
-				provider:        v1.Provider{Status: v1.ProviderStatus{}},
+				obj:             unstructured.Unstructured{},
 				conditionType:   xpv1.TypeReady,
 				conditionStatus: corev1.ConditionFalse,
 			},
@@ -212,12 +212,7 @@ func TestConditions_awaitCondition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&tt.args.provider)
-			if err != nil {
-				t.Error(err)
-			}
-			unstr := unstructured.Unstructured{Object: data}
-			if got := awaitCondition(&unstr, tt.args.conditionType, tt.args.conditionStatus); got != tt.want {
+			if got := awaitCondition(&tt.args.obj, tt.args.conditionType, tt.args.conditionStatus); got != tt.want {
 				t.Errorf("awaitCondition() = %v, want %v", got, tt.want)
 			}
 		})
