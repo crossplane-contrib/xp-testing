@@ -302,30 +302,11 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 		}
 
 		if opts.ControllerConfig != nil {
-			config := opts.ControllerConfig.DeepCopy()
-			config.TypeMeta.Kind = "ControllerConfig"
-			config.TypeMeta.APIVersion = controllerConfigSchema.GroupVersion().Identifier()
-			config.ObjectMeta = metav1.ObjectMeta{
-				Name: opts.Name,
-			}
 			data.ControllerConfig = opts.Name
-			//res := cfg.Client().Resources()
 
-			//err := res.Create(ctx, config)
-
-			cl, err := dynamic.NewForConfig(cfg.Client().RESTConfig())
+			err := applyControllerConfig(ctx, cfg, opts)
 			if err != nil {
-				return nil, err
-			}
-			res := cl.Resource(controllerConfigSchema)
-			data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(config)
-			if err != nil {
-				return nil, err
-			}
-			unstruc := unstructured.Unstructured{Object: data}
-			_, err = res.Create(ctx, &unstruc, metav1.CreateOptions{})
-			if err != nil {
-				return nil, err
+				return ctx, err
 			}
 		}
 
@@ -338,6 +319,28 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 		}
 		return applyResources(ctx, cfg, crs)
 	}
+}
+
+func applyControllerConfig(ctx context.Context, cfg *envconf.Config, opts InstallCrossplaneProviderOptions) error {
+	config := opts.ControllerConfig.DeepCopy()
+	config.TypeMeta.Kind = "ControllerConfig"
+	config.TypeMeta.APIVersion = controllerConfigSchema.GroupVersion().Identifier()
+	config.ObjectMeta = metav1.ObjectMeta{
+		Name: opts.Name,
+	}
+
+	cl, err := dynamic.NewForConfig(cfg.Client().RESTConfig())
+	if err != nil {
+		return err
+	}
+	res := cl.Resource(controllerConfigSchema)
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(config)
+	if err != nil {
+		return err
+	}
+	unstruc := unstructured.Unstructured{Object: data}
+	_, err = res.Create(ctx, &unstruc, metav1.CreateOptions{})
+	return err
 }
 
 func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
