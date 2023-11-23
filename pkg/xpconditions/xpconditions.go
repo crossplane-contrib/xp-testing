@@ -60,17 +60,17 @@ func (c *Conditions) ProviderConditionMatch(
 
 func awaitCondition(unstruc *unstructured.Unstructured, desiredType xpv1.ConditionType, desiredStatus corev1.ConditionStatus) bool {
 
-	slice, found, err := unstructured.NestedSlice(unstruc.Object, "status", "conditions")
+	conditions, ok, err := unstructured.NestedSlice(unstruc.UnstructuredContent(), "status", "conditions")
 	if err != nil {
+		klog.V(4).Infof("Could not extract conditions of (%s) %s, %s", unstruc.GroupVersionKind().String(), unstruc.GetName(), err.Error())
 		return false
-	}
-	if !found {
-		klog.V(4).Infof("Object (%s) %s has no conditions", unstruc.GroupVersionKind().String(), unstruc.GetName())
+	} else if !ok {
+		klog.V(4).Infof("Object (%s) %s doesnt have conditions", unstruc.GroupVersionKind().String(), unstruc.GetName())
 		return false
 	}
 
 	status := ""
-	for _, condition := range slice {
+	for _, condition := range conditions {
 		c := condition.(map[string]interface{})
 		curType := c["type"]
 		if curType == string(desiredType) {

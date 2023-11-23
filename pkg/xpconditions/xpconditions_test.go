@@ -162,6 +162,19 @@ func TestConditions_awaitCondition(t *testing.T) {
 		conditionType   xpv1.ConditionType
 		conditionStatus corev1.ConditionStatus
 	}
+	conditionSyncedTrue := map[string]interface{}{
+		"type":   "Synced",
+		"status": "True",
+	}
+	conditionReadyTrue := map[string]interface{}{
+		"type":   "Ready",
+		"status": "True",
+	}
+	conditionReadyFalse := map[string]interface{}{
+		"type":   "Ready",
+		"status": "False",
+	}
+
 	tests := []struct {
 		name string
 		args args
@@ -173,8 +186,8 @@ func TestConditions_awaitCondition(t *testing.T) {
 				obj: unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"status": map[string]interface{}{
-							"conditions": []map[string]interface{}{
-								{"type": "Ready", "status": "True"}},
+							"conditions": []interface{}{
+								conditionReadyTrue},
 						},
 					},
 				},
@@ -189,9 +202,10 @@ func TestConditions_awaitCondition(t *testing.T) {
 				obj: unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"Status": map[string]interface{}{
-							"Conditions": []map[string]interface{}{
-								{"Type": "Synced", "Status": "True"},
-								{"Type": "Ready", "Status": "False"}},
+							"Conditions": []interface{}{
+								conditionSyncedTrue,
+								conditionReadyFalse,
+							},
 						},
 					},
 				},
