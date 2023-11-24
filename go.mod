@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/GoogleContainerTools/container-diff v0.17.0
-	github.com/crossplane/crossplane-runtime v0.19.3
+	github.com/crossplane/crossplane-runtime v0.20.1
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.4
@@ -18,7 +18,8 @@ require (
 )
 
 require (
-	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	dario.cat/mergo v1.0.0 // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/containerd/continuity v0.0.0-20181203112020-004b46473808 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
