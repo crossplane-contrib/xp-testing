@@ -2,19 +2,24 @@ package xpconditions
 
 import (
 	"context"
-	"encoding/json"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	apimachinerywait "k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	apimachineryconditions "sigs.k8s.io/e2e-framework/klient/wait/conditions"
+)
+
+var (
+	providerSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1", Resource: "providers"}
 )
 
 // Conditions helps with matching resources on conditions
@@ -30,47 +35,71 @@ func New(r *resources.Resources) *Conditions {
 
 // ProviderConditionMatch checks if a Provider has a matching condition
 func (c *Conditions) ProviderConditionMatch(
-	provider k8s.Object,
+	name string,
 	conditionType xpv1.ConditionType,
 	conditionStatus corev1.ConditionStatus,
 ) apimachinerywait.ConditionWithContextFunc {
 	return func(ctx context.Context) (done bool, err error) {
-		klog.V(4).Infof("Awaiting provider %s to be ready", provider.GetName())
-		if err := c.resources.Get(ctx, provider.GetName(), provider.GetNamespace(), provider); err != nil {
+		klog.V(4).Infof("Awaiting provider %s to be ready", name)
+
+		cl, err := dynamic.NewForConfig(c.resources.GetConfig())
+		if err != nil {
 			return false, err
 		}
-		for _, cond := range provider.(*pkgv1.Provider).Status.Conditions {
-			klog.V(4).Infof("provider %s, condition: %s: %s", provider.GetName(), cond.Type, cond.Status)
-			if cond.Type == conditionType && cond.Status == conditionStatus {
-				done = true
-			}
+		res := cl.Resource(providerSchema)
+		providerObject, err := res.Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return false, resource.IgnoreNotFound(err)
 		}
-		return
+
+		result := checkCondition(providerObject, conditionType, conditionStatus)
+		return result, nil
 	}
+}
+
+func checkCondition(unstruc *unstructured.Unstructured, desiredType xpv1.ConditionType, desiredStatus corev1.ConditionStatus) bool {
+
+	conditions, ok, err := unstructured.NestedSlice(unstruc.UnstructuredContent(), "status", "conditions")
+	if err != nil {
+		klog.V(4).Infof("Could not extract conditions of (%s) %s, %s", unstruc.GroupVersionKind().String(), unstruc.GetName(), err.Error())
+		return false
+	} else if !ok {
+		klog.V(4).Infof("Object (%s) %s doesnt have conditions", unstruc.GroupVersionKind().String(), unstruc.GetName())
+		return false
+	}
+
+	status := ""
+	for _, condition := range conditions {
+		c := condition.(map[string]interface{})
+		curType := c["type"]
+		if curType == string(desiredType) {
+			status = c["status"].(string)
+		}
+	}
+	matchedConditionStatus := false
+	if status == string(desiredStatus) {
+		matchedConditionStatus = true
+	}
+
+	klog.V(4).Infof("Object (%s) %s, condition: %s: %s, matched: %b", unstruc.GroupVersionKind().String(), unstruc.GetName(), desiredType, status, matchedConditionStatus)
+
+	return matchedConditionStatus
 }
 
 // IsManagedResourceReadyAndReady returns if a managed resource has condtions Synced = True and Ready = True
 func (c *Conditions) IsManagedResourceReadyAndReady(object k8s.Object) bool {
 
-	managed := convertToManaged(object)
-	return managedCheckCondition(managed, xpv1.TypeSynced, corev1.ConditionTrue) &&
-		managedCheckCondition(managed, xpv1.TypeReady, corev1.ConditionTrue)
+	us := convertToUnstructured(object)
+	return checkCondition(us, xpv1.TypeSynced, corev1.ConditionTrue) &&
+		checkCondition(us, xpv1.TypeReady, corev1.ConditionTrue)
 }
 
-func convertToManaged(object k8s.Object) resource.Managed {
-	unstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
+func convertToUnstructured(object k8s.Object) *unstructured.Unstructured {
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
 	if err != nil {
 		return nil
 	}
-	var managed DummyManaged
-	err = runtime.DefaultUnstructuredConverter.
-		FromUnstructured(unstructured, &managed)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return &managed
+	return &unstructured.Unstructured{Object: data}
 }
 
 // ManagedResourcesReadyAndReady checks if a list of ManagedResources has a matching condition
@@ -78,36 +107,4 @@ func (c *Conditions) ManagedResourcesReadyAndReady(
 	list k8s.ObjectList,
 ) apimachinerywait.ConditionWithContextFunc {
 	return c.ResourcesMatch(list, c.IsManagedResourceReadyAndReady)
-}
-
-func managedCheckCondition(o resource.Managed, conditionType xpv1.ConditionType, want corev1.ConditionStatus) bool {
-	klog.V(4).Infof("Checking Managed Resource %s to be condition: %s: %s", o.GetName(), conditionType, want)
-	got := o.GetCondition(conditionType)
-	klog.V(4).Infof("Got Managed Resource %s to be condition: %s: %s, message: %s", o.GetName(), conditionType, got.Status, got.Message)
-	return want == got.Status
-}
-
-var _ resource.Managed = &DummyManaged{}
-
-// DummyManaged acts as a fake / dummy to allow generic checks on any managed resource
-type DummyManaged struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
-	resource.ProviderConfigReferencer
-	resource.ConnectionSecretWriterTo
-	resource.ConnectionDetailsPublisherTo
-	resource.Manageable
-	resource.Orphanable
-	xpv1.ConditionedStatus `json:"status"`
-}
-
-// DeepCopyObject returns a copy of the object as runtime.Object
-func (m *DummyManaged) DeepCopyObject() runtime.Object {
-	out := &DummyManaged{}
-	j, err := json.Marshal(m)
-	if err != nil {
-		panic(err)
-	}
-	_ = json.Unmarshal(j, out)
-	return out
 }

@@ -3,6 +3,7 @@ run:
 
   skip-files:
     - "zz_generated\\..+\\.go$"
+    - "vendored/.+\\.go$"
 
   build-tags:
     - e2e
