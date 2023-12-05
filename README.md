@@ -3,14 +3,14 @@
  `xp-testing` is a library enabling end-to-end tests for Crossplane providers, based on 
  [kubernetes-sigs/e2e-framework](https://github.com/kubernetes-sigs/e2e-framework/).
 
-The testing framework helps to setup test suits, by handling the deployments of crossplane and providers & ensures 
+The testing framework helps to setup test suites, by handling the deployments of crossplane and providers & ensures 
 providers are loaded into the cluster & helpers to speedup test development.
 
 * `pkg/xpconditions` supports with assertions. 
-* `pkg/resources` helps with handling of importing and deleting of resources while testing & an opinonated way to 
+* `pkg/resources` helps with handling of importing and deleting of resources while testing & an opinionated way to 
   create Test Features.
 * `pkg/setup` provides a default cluster setup, ready to take just the most necessary information and boostrap the 
-  test suit
+  test suite
 * `pkg/xpenvfuncs` provide basic functions to compose a test environment
 
  
