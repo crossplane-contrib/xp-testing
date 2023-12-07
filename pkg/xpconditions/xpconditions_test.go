@@ -3,7 +3,6 @@ package xpconditions
 import (
 	"testing"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -13,7 +12,7 @@ import (
 func TestConditions_awaitCondition(t *testing.T) {
 	type args struct {
 		obj             unstructured.Unstructured
-		conditionType   xpv1.ConditionType
+		conditionType   string
 		conditionStatus corev1.ConditionStatus
 	}
 	conditionSyncedTrue := map[string]interface{}{
@@ -29,6 +28,7 @@ func TestConditions_awaitCondition(t *testing.T) {
 		"status": "False",
 	}
 
+	const TypeReady = "Ready"
 	tests := []struct {
 		name string
 		args args
@@ -45,7 +45,7 @@ func TestConditions_awaitCondition(t *testing.T) {
 						},
 					},
 				},
-				conditionType:   xpv1.TypeReady,
+				conditionType:   TypeReady,
 				conditionStatus: corev1.ConditionTrue,
 			},
 			want: true,
@@ -63,7 +63,7 @@ func TestConditions_awaitCondition(t *testing.T) {
 						},
 					},
 				},
-				conditionType:   xpv1.TypeReady,
+				conditionType:   TypeReady,
 				conditionStatus: corev1.ConditionFalse,
 			},
 			want: false,
@@ -72,7 +72,7 @@ func TestConditions_awaitCondition(t *testing.T) {
 			name: "non existing condition, doesnt match expectation",
 			args: args{
 				obj:             unstructured.Unstructured{},
-				conditionType:   xpv1.TypeReady,
+				conditionType:   TypeReady,
 				conditionStatus: corev1.ConditionFalse,
 			},
 			want: false,

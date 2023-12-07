@@ -3,9 +3,8 @@ package xpconditions
 import (
 	"context"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +35,7 @@ func New(r *resources.Resources) *Conditions {
 // ProviderConditionMatch checks if a Provider has a matching condition
 func (c *Conditions) ProviderConditionMatch(
 	name string,
-	conditionType xpv1.ConditionType,
+	conditionType string,
 	conditionStatus corev1.ConditionStatus,
 ) apimachinerywait.ConditionWithContextFunc {
 	return func(ctx context.Context) (done bool, err error) {
@@ -49,7 +48,7 @@ func (c *Conditions) ProviderConditionMatch(
 		res := cl.Resource(providerSchema)
 		providerObject, err := res.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
-			return false, resource.IgnoreNotFound(err)
+			return false, ignoreNotFound(err)
 		}
 
 		result := checkCondition(providerObject, conditionType, conditionStatus)
@@ -57,7 +56,14 @@ func (c *Conditions) ProviderConditionMatch(
 	}
 }
 
-func checkCondition(unstruc *unstructured.Unstructured, desiredType xpv1.ConditionType, desiredStatus corev1.ConditionStatus) bool {
+func ignoreNotFound(err error) error {
+	if kerrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+func checkCondition(unstruc *unstructured.Unstructured, desiredType string, desiredStatus corev1.ConditionStatus) bool {
 
 	conditions, ok, err := unstructured.NestedSlice(unstruc.UnstructuredContent(), "status", "conditions")
 	if err != nil {
@@ -72,7 +78,7 @@ func checkCondition(unstruc *unstructured.Unstructured, desiredType xpv1.Conditi
 	for _, condition := range conditions {
 		c := condition.(map[string]interface{})
 		curType := c["type"]
-		if curType == string(desiredType) {
+		if curType == desiredType {
 			status = c["status"].(string)
 		}
 	}
@@ -90,8 +96,8 @@ func checkCondition(unstruc *unstructured.Unstructured, desiredType xpv1.Conditi
 func (c *Conditions) IsManagedResourceReadyAndReady(object k8s.Object) bool {
 
 	us := convertToUnstructured(object)
-	return checkCondition(us, xpv1.TypeSynced, corev1.ConditionTrue) &&
-		checkCondition(us, xpv1.TypeReady, corev1.ConditionTrue)
+	return checkCondition(us, "Synced", corev1.ConditionTrue) &&
+		checkCondition(us, "Ready", corev1.ConditionTrue)
 }
 
 func convertToUnstructured(object k8s.Object) *unstructured.Unstructured {

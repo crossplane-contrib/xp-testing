@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	github.com/GoogleContainerTools/container-diff v0.17.0
-	github.com/crossplane/crossplane-runtime v0.19.3
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.4
@@ -58,9 +57,9 @@ require (
 	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
