@@ -80,7 +80,7 @@ func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 
 	// Pull the Docker image
 	if err := exec.Command("docker", "pull", imageName).Run(); err != nil {
-		return fmt.Errorf("error pulling image: %v", err)
+		return fmt.Errorf("error pulling image: %w", err)
 	}
 
 	// Save the Docker image to a tar file
@@ -88,7 +88,7 @@ func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 	saveCmd := exec.Command("docker", "save", imageName)
 	saveCmd.Stdout = &imageBuff
 	if err := saveCmd.Run(); err != nil {
-		return fmt.Errorf("error saving image: %v", err)
+		return fmt.Errorf("error saving image: %w", err)
 	}
 
 	// require imageREader for multiple passes over io.ReadCloser/io.Reader
@@ -104,7 +104,7 @@ func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 	// reset to start
 	_, err := imageReader.Seek(0, io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("error seeking to start of imageReader: %v", err)
+		return fmt.Errorf("error seeking to start of imageReader: %w", err)
 	}
 
 	// e.g. layerPath := "6a19324dac365085b6cf6d286dc0afd4cba84f98ef896f512ecf58d5b9e1566c/layer.tar"
