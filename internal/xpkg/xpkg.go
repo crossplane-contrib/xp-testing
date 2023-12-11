@@ -11,13 +11,18 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pkg/errors"
 )
 
+const packageFile = "package.yaml"
+const layerTar = "layer.tar"
+
 var (
+
 	// required for testing with fake data
 	extractContainerImage = extractPackageYamlFromImage
 )
@@ -41,7 +46,7 @@ func FetchPackageContent(crossplanePackage string) (string, error) {
 	if err = extractContainerImage(crossplanePackage, tmpDir); err != nil {
 		return "", err
 	}
-	pkg, err := os.ReadFile(fmt.Sprintf("%s/package.yaml", tmpDir))
+	pkg, err := os.ReadFile(fmt.Sprintf("%s/%s", tmpDir, packageFile))
 	if err != nil {
 		return "", err
 	}
@@ -94,19 +99,23 @@ func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 	tee := io.TeeReader(imageReader, &buf)
 
 	// retrieve manifest from the xpgk, we need this to get the layers digest and path
-	manifest, errM := tarball.LoadManifest(ioOpener(io.NopCloser(tee)))
-	if errM != nil {
-		return errM
+	layerPath, errPackageLayer := findPackageYamlInImage(ioOpener(io.NopCloser(tee)))
+	if errPackageLayer != nil {
+		return errPackageLayer
 	}
 
-	// e.g. path := "6a19324dac365085b6cf6d286dc0afd4cba84f98ef896f512ecf58d5b9e1566c/layer.tar"
-	layerPath := manifest[0].Layers[0]
+	// read the rest of the data, so that &buf is filled for next read
+	_, err := io.ReadAll(tee)
+	if err != nil {
+		return err
+	}
+
+	// e.g. layerPath := "6a19324dac365085b6cf6d286dc0afd4cba84f98ef896f512ecf58d5b9e1566c/layer.tar"
 	layerRC, errF := extractFileFromTar(ioOpener(io.NopCloser(&buf)), layerPath)
 	if errF != nil {
 		return errF
 	}
 
-	const packageFile = "package.yaml"
 	localFile, errCreate := os.Create(filepath.Join(tempDirPath, filepath.Base(packageFile))) //nolint:gosec, we dictate path, not user provided
 	if errCreate != nil {
 		return fmt.Errorf("unable to create temp package.yaml file: %w", errCreate)
@@ -128,14 +137,14 @@ func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 		if header.Name == packageFile {
 			_, errCopy := io.Copy(localFile, tr) //nolint:gosec
 			if errCopy != nil {
-				return fmt.Errorf("failed to copy content to local package.yaml file: %w", errCopy)
+				return fmt.Errorf("failed to copy content to local %s file: %w", packageFile, errCopy)
 			}
 			// if successfully errCopy is nil
 			return nil
 		}
 	}
 
-	return errors.New("no package.yaml file found in xpkg image")
+	return errors.New(fmt.Sprintf("no %s file found in xpkg image", packageFile))
 }
 
 // extractFileFromTar
@@ -176,6 +185,62 @@ func extractFileFromTar(opener tarball.Opener, filePath string) (io.ReadCloser, 
 		}
 	}
 	return nil, fmt.Errorf("file %s not found in tar", filePath)
+}
+
+// findPackageYamlInImage finds the layer containing the package.yaml file.
+func findPackageYamlInImage(opener tarball.Opener) (string, error) {
+	f, err := opener()
+	if err != nil {
+		return "", err
+	}
+	needClose := true
+	defer func() {
+		if needClose {
+			errClose := f.Close()
+			if errClose != nil {
+				return
+			}
+		}
+	}()
+
+	tarReader := tar.NewReader(f)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		// Check if this is a layer
+		if header.Typeflag == tar.TypeReg && strings.Contains(header.Name, layerTar) {
+			if layerContainsPackageYaml(tarReader) {
+				return header.Name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("%s not found in any layer", packageFile)
+}
+
+// layerContainsPackageYaml checks if the given layer contains the package.yaml file.
+func layerContainsPackageYaml(layerReader io.Reader) bool {
+
+	tarLayerReader := tar.NewReader(layerReader)
+	for {
+		header, err := tarLayerReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false
+		}
+
+		if header.Typeflag == tar.TypeReg && header.Name == packageFile {
+			return true
+		}
+	}
+	return false
 }
 
 // ioOpener is a func for opening a tar file
