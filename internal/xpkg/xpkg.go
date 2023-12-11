@@ -5,15 +5,14 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pkg/errors"
 )
@@ -79,39 +78,37 @@ func SavePackage(crossplanePackage string, targetFile string) error {
 func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 	// this func has dependencies only on Google container registry and docker moby
 
-	ctx := context.Background()
-	cli, errClient := client.NewClientWithOpts(client.FromEnv)
-	if errClient != nil {
-		return fmt.Errorf("error creating client to docker: %w", errClient)
+	// Pull the Docker image
+	if err := exec.Command("docker", "pull", imageName).Run(); err != nil {
+		return fmt.Errorf("error pulling image: %v", err)
 	}
 
-	imageReader, errSave := cli.ImageSave(ctx, []string{imageName})
-	if errSave != nil {
-		return fmt.Errorf("error saving xpkg image with docker: %w", errSave)
+	// Save the Docker image to a tar file
+	var imageBuff bytes.Buffer
+	saveCmd := exec.Command("docker", "save", imageName)
+	saveCmd.Stdout = &imageBuff
+	if err := saveCmd.Run(); err != nil {
+		return fmt.Errorf("error saving image: %v", err)
 	}
-	defer func(imageReader io.ReadCloser) {
-		_ = imageReader.Close()
-	}(imageReader)
 
-	// require TeeReader for multiple passes over io.ReadCloser
-	// once to fetch manifest, then again for fetching package.yaml from layer
-	var buf bytes.Buffer
-	tee := io.TeeReader(imageReader, &buf)
+	// require imageREader for multiple passes over io.ReadCloser/io.Reader
+	// ps: no need to close as it is a wrapper around []byte
+	imageReader := bytes.NewReader(imageBuff.Bytes())
 
 	// retrieve manifest from the xpgk, we need this to get the layers digest and path
-	layerPath, errPackageLayer := findPackageYamlInImage(ioOpener(io.NopCloser(tee)))
+	layerPath, errPackageLayer := findPackageYamlInImage(ioOpener(io.NopCloser(imageReader)))
 	if errPackageLayer != nil {
 		return errPackageLayer
 	}
 
-	// read the rest of the data, so that &buf is filled for next read
-	_, err := io.ReadAll(tee)
+	// reset to start
+	_, err := imageReader.Seek(0, io.SeekStart)
 	if err != nil {
-		return err
+		return fmt.Errorf("error seeking to start of imageReader: %v", err)
 	}
 
 	// e.g. layerPath := "6a19324dac365085b6cf6d286dc0afd4cba84f98ef896f512ecf58d5b9e1566c/layer.tar"
-	layerRC, errF := extractFileFromTar(ioOpener(io.NopCloser(&buf)), layerPath)
+	layerRC, errF := extractFileFromTar(ioOpener(io.NopCloser(imageReader)), layerPath)
 	if errF != nil {
 		return errF
 	}
