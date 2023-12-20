@@ -74,4 +74,4 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/docker/docker => github.com/docker/docker v1.4.2-0.20190219180918-740349757396
+replace github.com/docker/docker => github.com/docker/docker v1.13.1
