@@ -8,11 +8,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	"github.com/vladimirvivien/gexe"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/support/kind"
+
+	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 
 	"sigs.k8s.io/e2e-framework/pkg/env"
 
@@ -34,7 +35,7 @@ func TestMain(m *testing.M) {
 	imgs.ControllerImage = &imgs.Package
 
 	// We pull the image here, usually this would have been done by the build tool
-	pullPackageOrPanic(imgs.Package)
+	mustPullPackage(imgs.Package)
 
 	// Enhance interface for one- based providers
 	clusterSetup := setup.ClusterSetup{
@@ -57,7 +58,7 @@ func TestMain(m *testing.M) {
 	os.Exit(testenv.Run(m))
 }
 
-func pullPackageOrPanic(image string) {
+func mustPullPackage(image string) {
 	klog.Info("Pulling ", image)
 	runner := gexe.New()
 	p := runner.RunProc(fmt.Sprintf("docker pull %s", image))
