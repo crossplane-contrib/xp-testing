@@ -78,11 +78,6 @@ func SavePackage(crossplanePackage string, targetFile string) error {
 func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 	// this func has dependencies only on Google container registry and docker moby
 
-	// Pull the Docker image
-	if err := exec.Command("docker", "pull", imageName).Run(); err != nil {
-		return fmt.Errorf("error pulling image: %w", err)
-	}
-
 	// Save the Docker image to a tar file
 	var imageBuff bytes.Buffer
 	saveCmd := exec.Command("docker", "save", imageName)
