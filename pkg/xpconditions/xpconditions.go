@@ -75,11 +75,16 @@ func checkCondition(unstruc *unstructured.Unstructured, desiredType string, desi
 	}
 
 	status := ""
+	message := ""
 	for _, condition := range conditions {
 		c := condition.(map[string]interface{})
 		curType := c["type"]
 		if curType == desiredType {
 			status = c["status"].(string)
+			msg, convertible := c["message"].(string)
+			if convertible {
+				message = msg
+			}
 		}
 	}
 	matchedConditionStatus := false
@@ -87,7 +92,7 @@ func checkCondition(unstruc *unstructured.Unstructured, desiredType string, desi
 		matchedConditionStatus = true
 	}
 
-	klog.V(4).Infof("Object (%s) %s, condition: %s: %s, matched: %b", unstruc.GroupVersionKind().String(), unstruc.GetName(), desiredType, status, matchedConditionStatus)
+	klog.V(4).Infof("Object (%s) %s, condition: %s: %s, matched: %b, message: %s", unstruc.GroupVersionKind().String(), unstruc.GetName(), desiredType, status, matchedConditionStatus, message)
 
 	return matchedConditionStatus
 }
