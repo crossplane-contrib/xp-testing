@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/crossplane-contrib/xp-testing/pkg/envvar"
-	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	"github.com/vladimirvivien/gexe"
 	"k8s.io/apimachinery/pkg/runtime"
 	log "k8s.io/klog/v2"
@@ -14,6 +12,9 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 	"sigs.k8s.io/e2e-framework/support/kind"
+
+	"github.com/crossplane-contrib/xp-testing/pkg/envvar"
+	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/images"
 	"github.com/crossplane-contrib/xp-testing/pkg/xpenvfuncs"
@@ -25,22 +26,29 @@ const (
 	defaultPrefix   = "e2e"
 )
 
+// ProviderCredentials holds the data for a secret to be created in the crossplane namespace
+type ProviderCredentials struct {
+	SecretData map[string]string
+	SecretName *string
+}
+
 // ClusterSetup help with a default kind setup for crossplane, with crossplane and a provider
 type ClusterSetup struct {
-	ProviderName      string
-	Images            images.ProviderImages
-	ControllerConfig  *vendored.ControllerConfig
-	SecretData        map[string]string
-	AddToSchemaFuncs  []func(s *runtime.Scheme) error
-	CrossplaneVersion string
-	postSetupFuncs    []ClusterAwareFunc
+	ProviderName       string
+	Images             images.ProviderImages
+	ControllerConfig   *vendored.ControllerConfig
+	ProviderCredential *ProviderCredentials
+	AddToSchemaFuncs   []func(s *runtime.Scheme) error
+	CrossplaneVersion  string
+	postSetupFuncs     []ClusterAwareFunc
+	ProviderConfigDir  *string
 }
 
 // Configure optionally creates the kind cluster and takes care about the rest of the setup,
 // There are two relevant Environment Variables that influence its behavior
 // * E2E_REUSE_CLUSTER: if set, the cluster, crossplane and provider will be reused and not deleted after test.
 // If set, CLUSTER_NAME will be ignored
-// * TESTCLUSTER_NAME: overwrites the cluster name
+// * E2E_CLUSTER_NAME: overwrites the cluster name
 // Currently requires a kind.Cluster, only for kind we can detect if a cluster is reusable
 // nolint:interfacer
 func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster) string {
@@ -75,9 +83,9 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 						ControllerImage:  s.Images.ControllerImage,
 						ControllerConfig: s.ControllerConfig,
 					}),
-				xpenvfuncs.ApplySecretInCrossplaneNamespace("secret", s.SecretData),
 			), firstSetup),
-		xpenvfuncs.ApplyProviderConfig,
+		setupProviderCredentials(s),
+		xpenvfuncs.ApplyProviderConfigFromDir(orDefault(s.ProviderConfigDir, "./provider")),
 		xpenvfuncs.LoadSchemas(s.AddToSchemaFuncs...),
 		xpenvfuncs.AwaitCRDsEstablished)
 
@@ -88,6 +96,22 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 		xpenvfuncs.Conditional(envfuncs.DestroyCluster(name), !reuseCluster),
 	)
 	return name
+}
+
+func setupProviderCredentials(s *ClusterSetup) env.Func {
+	if s.ProviderCredential == nil {
+		return nil
+	}
+	return xpenvfuncs.ApplySecretInCrossplaneNamespace(
+		orDefault(s.ProviderCredential.SecretName, "secret"),
+		s.ProviderCredential.SecretData)
+}
+
+func orDefault(overwriteValue *string, defaultValue string) string {
+	if overwriteValue == nil {
+		return defaultValue
+	}
+	return *overwriteValue
 }
 
 // ClusterAwareFunc are functions which create env.Func and have the clusters name as context
