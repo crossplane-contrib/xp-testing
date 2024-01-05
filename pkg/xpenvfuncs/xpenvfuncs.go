@@ -12,9 +12,6 @@ import (
 	"text/template"
 	"time"
 
-	resHelper "github.com/crossplane-contrib/xp-testing/pkg/resources"
-	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
-	xconditions "github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -32,6 +29,10 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 	"sigs.k8s.io/e2e-framework/third_party/helm"
+
+	resHelper "github.com/crossplane-contrib/xp-testing/pkg/resources"
+	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
+	xconditions "github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 
 	"github.com/crossplane-contrib/xp-testing/internal/docker"
 	"github.com/crossplane-contrib/xp-testing/internal/xpkg"
@@ -148,7 +149,7 @@ func ApplySecretInCrossplaneNamespace(name string, data map[string]string) env.F
 				return ctx, err
 			}
 
-			secret := newSecret(name, data)
+			secret := SimpleSecret(name, CrossplaneNamespace, data)
 
 			if err := r.Create(ctx, secret); err != nil {
 				klog.Error(err)
@@ -179,22 +180,23 @@ func InstallCrossplaneProvider(clusterName string, opts InstallCrossplaneProvide
 	)
 }
 
-// ApplyProviderConfig applys the files from `./data/provider` and mutates their namespace
-func ApplyProviderConfig(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-	r, _ := resources.New(cfg.Client().RESTConfig())
+// ApplyProviderConfigFromDir applies the files from given folder and mutates their namespace
+func ApplyProviderConfigFromDir(dir string) env.Func {
+	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		r, _ := resources.New(cfg.Client().RESTConfig())
+		klog.Info("Apply ProviderConfig")
+		errDecode := decoder.DecodeEachFile(
+			ctx, os.DirFS(dir), "*",
+			decoder.CreateHandler(r),
+			decoder.MutateNamespace(cfg.Namespace()),
+		)
 
-	klog.Info("Apply ProviderConfig")
-	errDecode := decoder.DecodeEachFile(
-		ctx, os.DirFS("./provider"), "*",
-		decoder.CreateHandler(r),
-		decoder.MutateNamespace(cfg.Namespace()),
-	)
+		if errDecode != nil {
+			klog.Error("Error Details ", "errDecode ", errDecode)
+		}
 
-	if errDecode != nil {
-		klog.Error("Error Details ", "errDecode ", errDecode)
+		return ctx, nil
 	}
-
-	return ctx, nil
 }
 
 // LoadSchemas prepares the kubernetes client with additional schemas
@@ -438,12 +440,12 @@ func Conditional(fn env.Func, condition bool) env.Func {
 	}
 }
 
-// Create Opaque secret from non-binary data in crossplane namespace
-func newSecret(name string, stringData map[string]string) *corev1.Secret {
+// SimpleSecret Create Opaque secret from non-binary data in crossplane namespace
+func SimpleSecret(name string, namespace string, stringData map[string]string) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: CrossplaneNamespace,
+			Namespace: namespace,
 		},
 		StringData: stringData,
 		Type:       corev1.SecretTypeOpaque,

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 	"github.com/samber/lo"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +24,8 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/klient/wait/conditions"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
+
+	"github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 )
 
 var (
@@ -32,7 +33,7 @@ var (
 )
 
 // ImportResources gets the resources from dir
-func ImportResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string) {
+func ImportResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string, decoderOptions ...decoder.DecodeOption) {
 	r := resClient(cfg)
 
 	r.WithNamespace(cfg.Namespace())
@@ -48,6 +49,7 @@ func ImportResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir
 	errdecode := decoder.DecodeEachFile(
 		ctx, os.DirFS(dir), "*",
 		decoder.CreateIgnoreAlreadyExists(r),
+		decoderOptions...,
 	)
 	if errdecode != nil {
 		t.Fatal(errdecode)
