@@ -381,7 +381,8 @@ func getClusterControlPlaneName(clusterName string) string {
 func Compose(envfuncs ...env.Func) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		for _, envfunc := range envfuncs {
-			if ctx, err := envfunc(ctx, cfg); err != nil {
+			var err error
+			if ctx, err = envfunc(ctx, cfg); err != nil {
 				return ctx, err
 			}
 		}
