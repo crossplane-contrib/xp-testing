@@ -44,7 +44,7 @@ func ImportResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir
 		t.Fatalf("No yaml files found for %s", dir)
 		return
 	}
-
+	decoderOptions = append(decoderOptions, decoder.MutateNamespace(cfg.Namespace()))
 	// managed resources fare cluster scoped, so if we patched them with the test namespace it won't do anything
 	errdecode := decoder.DecodeEachFile(
 		ctx, os.DirFS(dir), "*",
@@ -129,6 +129,7 @@ func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dir string) ([
 			objects = append(objects, obj)
 			return nil
 		},
+		decoder.MutateNamespace(cfg.Namespace()),
 	)
 	return objects, err
 }
@@ -250,6 +251,7 @@ func deleteObjects(ctx context.Context, cfg *envconf.Config, dir string) error {
 	return decoder.DecodeEachFile(
 		ctx, os.DirFS(dir), "*",
 		decoder.DeleteHandler(r),
+		decoder.MutateNamespace(cfg.Namespace()),
 	)
 }
 
