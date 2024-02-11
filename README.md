@@ -3,7 +3,7 @@
  `xp-testing` is a library enabling end-to-end tests for Crossplane providers, based on 
  [kubernetes-sigs/e2e-framework](https://github.com/kubernetes-sigs/e2e-framework/).
 
-The testing framework helps to set up test suites, by handling the deployments of crossplane and providers & ensures 
+This testing framework helps to set up test suites, by handling the deployments of crossplane and providers & ensures 
 providers are loaded into the cluster & helpers to speedup test development.
 
 * [`pkg/xpconditions`](./pkg/xpconditions) supports with assertions
@@ -23,7 +23,7 @@ A reference implementation of `xp-testing` is available in [provider-argocd](htt
 
 ## Contributing
 
-xp-testing is a community driven project and we welcome contributions. See the
+`xp-testing` is a community driven project and we welcome contributions. See the
 Crossplane
 [Contributing](https://github.com/crossplane/crossplane/blob/master/CONTRIBUTING.md)
 guidelines to get started.
@@ -58,7 +58,7 @@ as the core Crossplane project.
 
 ## Licensing
 
-xp-testing is under the Apache 2.0 license.
+`xp-testing` is under the Apache 2.0 license.
 
 ## Credits
 
