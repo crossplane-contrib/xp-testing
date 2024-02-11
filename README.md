@@ -3,12 +3,12 @@
  `xp-testing` is a library enabling end-to-end tests for Crossplane providers, based on 
  [kubernetes-sigs/e2e-framework](https://github.com/kubernetes-sigs/e2e-framework/).
 
-The testing framework helps to setup test suites, by handling the deployments of crossplane and providers & ensures 
+The testing framework helps to set up test suites, by handling the deployments of crossplane and providers & ensures 
 providers are loaded into the cluster & helpers to speedup test development.
 
-* `pkg/xpconditions` supports with assertions. 
+* `pkg/xpconditions` supports with assertions
 * `pkg/resources` helps with handling of importing and deleting of resources while testing & an opinionated way to 
-  create Test Features.
+  create Test Features
 * `pkg/setup` provides a default cluster setup, ready to take just the most necessary information and boostrap the 
   test suite
 * `pkg/xpenvfuncs` provide basic functions to compose a test environment
@@ -19,7 +19,7 @@ providers are loaded into the cluster & helpers to speedup test development.
 For getting started guides, installation, deployment, and administration, check latest
 Crossplane [document](https://crossplane.io/docs/latest).
 
-A reference implementation of `xp-testing` is available in [provider-argocd](https://github.com/crossplane-contrib/provider-argocd/pull/89/files)
+A reference implementation of `xp-testing` is available in [provider-argocd](https://github.com/crossplane-contrib/provider-argocd/pull/89/files).
 
 ## Contributing
 
@@ -40,7 +40,7 @@ Please use the following to reach members of the community:
 * Slack: Join our [slack channel](https://slack.crossplane.io)
 * Forums:
   [crossplane-dev](https://groups.google.com/forum/#!forum/crossplane-dev)
-* Twitter: [@crossplane_io](https://twitter.com/crossplane_io)
+* Twitter/X: [@crossplane_io](https://twitter.com/crossplane_io)
 * Email: [info@crossplane.io](mailto:info@crossplane.io)
 
 ## Governance and Owners
