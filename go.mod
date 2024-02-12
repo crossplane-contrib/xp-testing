@@ -3,7 +3,7 @@ module github.com/crossplane-contrib/xp-testing
 go 1.20
 
 require (
-	github.com/google/go-containerregistry v0.17.0
+	github.com/google/go-containerregistry v0.19.0
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.39.0
 	github.com/stretchr/testify v1.8.4
