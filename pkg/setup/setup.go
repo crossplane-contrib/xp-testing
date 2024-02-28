@@ -24,6 +24,7 @@ const (
 	reuseClusterEnv = "E2E_REUSE_CLUSTER"
 	clusterNameEnv  = "E2E_CLUSTER_NAME"
 	defaultPrefix   = "e2e"
+	DockerRegistry  = "index.docker.io"
 )
 
 // ProviderCredentials holds the data for a secret to be created in the crossplane namespace
@@ -32,14 +33,32 @@ type ProviderCredentials struct {
 	SecretName *string
 }
 
+// CrossplaneSetup holds configuration specific to the crossplane installation
+type CrossplaneSetup struct {
+	Version  string
+	Registry string
+}
+
+// Options returns configurtion as options pattern to be passed on to installation process step
+func (c CrossplaneSetup) Options() []xpenvfuncs.CrossplaneOpt {
+	var opts []xpenvfuncs.CrossplaneOpt
+	if c.Version != "" {
+		opts = append(opts, xpenvfuncs.Version(c.Version))
+	}
+	if c.Registry != "" {
+		opts = append(opts, xpenvfuncs.Registry(c.Registry))
+	}
+	return opts
+}
+
 // ClusterSetup help with a default kind setup for crossplane, with crossplane and a provider
 type ClusterSetup struct {
 	ProviderName       string
 	Images             images.ProviderImages
+	CrossplaneSetup    CrossplaneSetup
 	ControllerConfig   *vendored.ControllerConfig
 	ProviderCredential *ProviderCredentials
 	AddToSchemaFuncs   []func(s *runtime.Scheme) error
-	CrossplaneVersion  string
 	postSetupFuncs     []ClusterAwareFunc
 	ProviderConfigDir  *string
 }
@@ -75,7 +94,7 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 	testEnv.Setup(
 		xpenvfuncs.Conditional(
 			xpenvfuncs.Compose(
-				xpenvfuncs.InstallCrossplane(name, s.CrossplaneVersion),
+				xpenvfuncs.InstallCrossplane(name, s.CrossplaneSetup.Options()...),
 				xpenvfuncs.InstallCrossplaneProvider(
 					name, xpenvfuncs.InstallCrossplaneProviderOptions{
 						Name:             s.ProviderName,
