@@ -530,6 +530,7 @@ func DeleteTestNamespace(ctx context.Context, cfg *envconf.Config) (context.Cont
 	return envfuncs.DeleteNamespace(cfg.Namespace())(ctx, cfg)
 }
 
+// CrossplaneOpt Option alias for configuring aspects of crossplane installation
 type CrossplaneOpt = helm.Option
 
 // Version configures the version of crossplane to be installed

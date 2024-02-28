@@ -39,9 +39,9 @@ func TestMain(m *testing.M) {
 
 	// Enhance interface for one- based providers
 	clusterSetup := setup.ClusterSetup{
-		ProviderName:      "provider-nop",
-		Images:            imgs,
-		CrossplaneVersion: "1.14.0",
+		ProviderName:    "provider-nop",
+		Images:          imgs,
+		CrossplaneSetup: setup.CrossplaneSetup{},
 		ControllerConfig: &vendored.ControllerConfig{
 			Spec: vendored.ControllerConfigSpec{
 				Image: &imgs.Package,

@@ -24,7 +24,9 @@ const (
 	reuseClusterEnv = "E2E_REUSE_CLUSTER"
 	clusterNameEnv  = "E2E_CLUSTER_NAME"
 	defaultPrefix   = "e2e"
-	DockerRegistry  = "index.docker.io"
+
+	// DockerRegistry is the default docker registry, which can be passed to the crossplane setup
+	DockerRegistry = "index.docker.io"
 )
 
 // ProviderCredentials holds the data for a secret to be created in the crossplane namespace
