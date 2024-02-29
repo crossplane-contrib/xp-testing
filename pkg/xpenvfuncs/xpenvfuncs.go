@@ -92,7 +92,7 @@ var (
 )
 
 // InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster
-func InstallCrossplane(clusterName string, crossplaneVersion string) env.Func {
+func InstallCrossplane(clusterName string, opts ...CrossplaneOpt) env.Func {
 	cacheName := "package-cache"
 
 	return Compose(
@@ -122,12 +122,12 @@ func InstallCrossplane(clusterName string, crossplaneVersion string) env.Func {
 			helmInstallOpts := []helm.Option{
 				helm.WithName("crossplane"),
 				helm.WithNamespace("crossplane-system"),
-				helm.WithVersion(crossplaneVersion),
 				helm.WithReleaseName(helmRepoName + "/crossplane"),
 				helm.WithArgs("--set", fmt.Sprintf("packageCache.pvc=%s", cacheName)),
 				helm.WithTimeout("10m"),
 				helm.WithWait(),
 			}
+			helmInstallOpts = append(helmInstallOpts, opts...)
 
 			if err := manager.RunInstall(helmInstallOpts...); err != nil {
 				return ctx, errors.Wrap(err, "install crossplane func: failed to install crossplane Helm chart")
@@ -528,4 +528,21 @@ func CreateTestNamespace(ctx context.Context, cfg *envconf.Config) (context.Cont
 // DeleteTestNamespace Deletes the test namespace, name comes from kubernetes-e2e
 func DeleteTestNamespace(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 	return envfuncs.DeleteNamespace(cfg.Namespace())(ctx, cfg)
+}
+
+// CrossplaneOpt Option alias for configuring aspects of crossplane installation
+type CrossplaneOpt = helm.Option
+
+// Version configures the version of crossplane to be installed
+func Version(version string) CrossplaneOpt {
+	return func(opts *helm.Opts) {
+		opts.Version = version
+	}
+}
+
+// Registry configures the registry crossplane uses by adding it to the args values
+func Registry(registry string) CrossplaneOpt {
+	return func(opts *helm.Opts) {
+		opts.Args = append(opts.Args, "--set", fmt.Sprintf("args={--registry=%s}", registry))
+	}
 }
