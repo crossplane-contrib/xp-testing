@@ -20,7 +20,6 @@ const (
 )
 
 const packageFile = "package.yaml"
-const layerTar = "layer.tar"
 
 var (
 
