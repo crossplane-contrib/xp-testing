@@ -27,12 +27,6 @@ var (
 	extractContainerImage = extractPackageYamlFromImage
 )
 
-// tarFile represents a single file inside a tar. Closing it closes the tar itself.
-type tarFile struct {
-	io.Reader
-	io.Closer
-}
-
 // FetchPackageContent returns the content of the package.yaml file from the givecn crossplane package
 func FetchPackageContent(crossplanePackage string) (string, error) {
 	tmpDir, err := os.MkdirTemp("", "xpkg-*")
