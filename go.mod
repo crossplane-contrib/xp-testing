@@ -1,6 +1,6 @@
 module github.com/crossplane-contrib/xp-testing
 
-go 1.20
+go 1.23
 
 require (
 	github.com/google/go-containerregistry v0.19.0
