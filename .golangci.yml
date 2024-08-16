@@ -1,15 +1,11 @@
 run:
   deadline: 2m
 
-  skip-files:
-    - "zz_generated\\..+\\.go$"
-    - "vendored/.+\\.go$"
-
   build-tags:
     - e2e
 output:
   # colored-line-number|line-number|json|tab|checkstyle|code-climate, default is "colored-line-number"
-  format: colored-line-number
+  formats: colored-line-number
 
 linters-settings:
   errcheck:
@@ -116,12 +112,10 @@ linters:
     - govet
     - gocyclo
     - gocritic
-    - interfacer
     - goconst
     - goimports
     - gofmt  # We enable this as well as goimports for its simplify mode.
     - prealloc
-    - golint
     - unconvert
     - misspell
     - nakedret
@@ -201,3 +195,7 @@ issues:
 
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
+
+  exclude-files:
+    - "zz_generated\\..+\\.go$"
+    - "vendored/.+\\.go$"
