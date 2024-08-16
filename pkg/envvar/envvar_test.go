@@ -30,37 +30,37 @@ func (suite *EnvVarTestSuite) TearDownTest() {
 }
 
 func (suite *EnvVarTestSuite) TestGet() {
-	suite.T().Run("Returns existing env vars", func(t *testing.T) {
-		require.Equal(t, "", Get("ENVVARTEST_EMPTY"))
-		require.Equal(t, "This is a single line", Get("ENVVARTEST_SINGLE"))
-		require.Equal(t, "This\nis\na multiline string!", Get("ENVVARTEST_MULTILINE"))
+	suite.Run("Returns existing env vars", func() {
+		require.Equal(suite.T(), "", Get("ENVVARTEST_EMPTY"))
+		require.Equal(suite.T(), "This is a single line", Get("ENVVARTEST_SINGLE"))
+		require.Equal(suite.T(), "This\nis\na multiline string!", Get("ENVVARTEST_MULTILINE"))
 	})
-	suite.T().Run("Returns empty string if env var can't be found", func(t *testing.T) {
+	suite.Run("Returns empty string if env var can't be found", func() {
 		suite.Require().Empty(Get("ENVVARTEST_DOESNT_EXIST"))
 	})
 }
 
 func (suite *EnvVarTestSuite) TestGetOrDefault() {
-	suite.T().Run("Returns existing env vars", func(t *testing.T) {
-		require.Equal(t, "", GetOrDefault("ENVVARTEST_EMPTY", ""))
-		require.Equal(t, "This is a single line", GetOrDefault("ENVVARTEST_SINGLE", ""))
-		require.Equal(t, "This\nis\na multiline string!", GetOrDefault("ENVVARTEST_MULTILINE", ""))
+	suite.Run("Returns existing env vars", func() {
+		require.Equal(suite.T(), "", GetOrDefault("ENVVARTEST_EMPTY", ""))
+		require.Equal(suite.T(), "This is a single line", GetOrDefault("ENVVARTEST_SINGLE", ""))
+		require.Equal(suite.T(), "This\nis\na multiline string!", GetOrDefault("ENVVARTEST_MULTILINE", ""))
 	})
-	suite.T().Run("Returns default value if env var can't be found", func(t *testing.T) {
-		require.Equal(t, "a default value", GetOrDefault("ENVVARTEST_DOESNT_EXIST", "a default value"))
-		require.Equal(t, "another default value", GetOrDefault("ENVVARTEST_DOESNT_EXIST", "another default value"))
+	suite.Run("Returns default value if env var can't be found", func() {
+		require.Equal(suite.T(), "a default value", GetOrDefault("ENVVARTEST_DOESNT_EXIST", "a default value"))
+		require.Equal(suite.T(), "another default value", GetOrDefault("ENVVARTEST_DOESNT_EXIST", "another default value"))
 	})
 }
 
 func (suite *EnvVarTestSuite) TestGetOrPanic() {
-	suite.T().Run("Returns existing env vars", func(t *testing.T) {
-		require.Equal(t, "", GetOrPanic("ENVVARTEST_EMPTY"))
-		require.Equal(t, "This is a single line", GetOrPanic("ENVVARTEST_SINGLE"))
-		require.Equal(t, "This\nis\na multiline string!", GetOrPanic("ENVVARTEST_MULTILINE"))
+	suite.Run("Returns existing env vars", func() {
+		require.Equal(suite.T(), "", GetOrPanic("ENVVARTEST_EMPTY"))
+		require.Equal(suite.T(), "This is a single line", GetOrPanic("ENVVARTEST_SINGLE"))
+		require.Equal(suite.T(), "This\nis\na multiline string!", GetOrPanic("ENVVARTEST_MULTILINE"))
 	})
-	suite.T().Run("Panics if env var can't be found", func(t *testing.T) {
-		require.Panics(t, func() { GetOrPanic("ENVVARTEST_DOESNT_EXIST") })
-		require.Panics(t, func() { GetOrPanic("ENVVARTEST_DOESNT_EXIST") })
+	suite.Run("Panics if env var can't be found", func() {
+		require.Panics(suite.T(), func() { GetOrPanic("ENVVARTEST_DOESNT_EXIST") })
+		require.Panics(suite.T(), func() { GetOrPanic("ENVVARTEST_DOESNT_EXIST") })
 	})
 }
 
