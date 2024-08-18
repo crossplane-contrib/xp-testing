@@ -92,7 +92,7 @@ func checkCondition(unstruc *unstructured.Unstructured, desiredType string, desi
 		matchedConditionStatus = true
 	}
 
-	klog.V(4).Infof("Object (%s) %s, condition: %s: %s, matched: %b, message: %s", unstruc.GroupVersionKind().String(), unstruc.GetName(), desiredType, status, matchedConditionStatus, message)
+	klog.V(4).Infof("Object (%s) %s, condition: %s: %s, matched: %t, message: %s", unstruc.GroupVersionKind().String(), unstruc.GetName(), desiredType, status, matchedConditionStatus, message)
 
 	return matchedConditionStatus
 }
