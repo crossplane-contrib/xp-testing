@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"gopkg.in/yaml.v2"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -215,11 +216,16 @@ func dumpResourcesOfCRDs(ctx context.Context, t *testing.T, dynamiq dynamic.Inte
 		version.Name,
 		crd.Spec.Names.Plural,
 	)
+
 	if err != nil {
 		t.Error(err)
 	}
 	for _, res := range resourcesList {
-		t.Log(res)
+		marshal, err := yaml.Marshal(&res)
+		if err != nil {
+			t.Log(res)
+		}
+		t.Log(string(marshal))
 	}
 }
 
