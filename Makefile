@@ -16,6 +16,9 @@ e2e:
 build:
 	go build -v ./...
 
+.PHONY: mod
+mod:
+	go mod tidy
 .PHONY: all
-all: lint build test e2e
+all: mod lint build test e2e
 
