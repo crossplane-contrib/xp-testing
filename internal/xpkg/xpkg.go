@@ -83,6 +83,13 @@ func extractPackageYamlFromImage(imageName, tempDirPath string) error {
 		return err
 	}
 
+	// .Size() to check if the image is accessible. mutate.Extract might return just EOF
+	_, err = image.Size()
+
+	if err != nil {
+		return err
+	}
+
 	tarc := mutate.Extract(image)
 
 	localFile, errCreate := os.Create(filepath.Join(tempDirPath, filepath.Base(packageFile))) //nolint:gosec, we dictate path, not user provided
