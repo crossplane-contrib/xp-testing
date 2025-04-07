@@ -55,14 +55,15 @@ func (c CrossplaneSetup) Options() []xpenvfuncs.CrossplaneOpt {
 
 // ClusterSetup help with a default kind setup for crossplane, with crossplane and a provider
 type ClusterSetup struct {
-	ProviderName       string
-	Images             images.ProviderImages
-	CrossplaneSetup    CrossplaneSetup
-	ControllerConfig   *vendored.ControllerConfig
-	ProviderCredential *ProviderCredentials
-	AddToSchemaFuncs   []func(s *runtime.Scheme) error
-	postSetupFuncs     []ClusterAwareFunc
-	ProviderConfigDir  *string
+	ProviderName            string
+	Images                  images.ProviderImages
+	CrossplaneSetup         CrossplaneSetup
+	ControllerConfig        *vendored.ControllerConfig
+	DeploymentRuntimeConfig *vendored.DeploymentRuntimeConfig
+	ProviderCredential      *ProviderCredentials
+	AddToSchemaFuncs        []func(s *runtime.Scheme) error
+	postSetupFuncs          []ClusterAwareFunc
+	ProviderConfigDir       *string
 }
 
 // Configure optionally creates the kind cluster and takes care about the rest of the setup,
@@ -99,10 +100,11 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 				xpenvfuncs.InstallCrossplane(name, s.CrossplaneSetup.Options()...),
 				xpenvfuncs.InstallCrossplaneProvider(
 					name, xpenvfuncs.InstallCrossplaneProviderOptions{
-						Name:             s.ProviderName,
-						Package:          s.Images.Package,
-						ControllerImage:  s.Images.ControllerImage,
-						ControllerConfig: s.ControllerConfig,
+						Name:                    s.ProviderName,
+						Package:                 s.Images.Package,
+						ControllerImage:         s.Images.ControllerImage,
+						ControllerConfig:        s.ControllerConfig,
+						DeploymentRuntimeConfig: s.DeploymentRuntimeConfig,
 					}),
 			), firstSetup),
 		setupProviderCredentials(s),
