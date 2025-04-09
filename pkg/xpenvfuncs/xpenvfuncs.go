@@ -93,7 +93,7 @@ const (
 )
 
 var (
-	controllerConfigSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1alpha1", Resource: "controllerconfigs"}
+	controllerConfigSchema        = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1alpha1", Resource: "controllerconfigs"}
 	deploymentRuntimeConfigSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1beta1", Resource: "deploymentruntimeconfigs"}
 )
 
