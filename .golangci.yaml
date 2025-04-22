@@ -75,6 +75,12 @@ linters:
     generated: lax
     rules:
       - linters:
+          - staticcheck
+        text: "QF1008:" # could remove embedded field "xy" from selector (staticcheck)
+      - linters:
+          - staticcheck
+        text: "QF1007:" # could merge conditional assignment into variable declaration (staticcheck)
+      - linters:
           - dupl
           - errcheck
           - gocyclo
