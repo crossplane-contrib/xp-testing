@@ -78,7 +78,12 @@ spec:
   {{- if .ControllerConfig }}
   controllerConfigRef:
     name: {{.ControllerConfig}}
-{{end}}`
+  {{end}}
+  {{- if .RuntimeConfig }}
+  runtimeConfigRef:
+    name: {{.RuntimeConfig}}
+  {{end}}
+`
 
 const (
 	helmRepoName = "e2e_crossplane-stable"
@@ -88,7 +93,8 @@ const (
 )
 
 var (
-	controllerConfigSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1alpha1", Resource: "controllerconfigs"}
+	controllerConfigSchema        = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1alpha1", Resource: "controllerconfigs"}
+	deploymentRuntimeConfigSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1beta1", Resource: "deploymentruntimeconfigs"}
 )
 
 // InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster
@@ -163,10 +169,11 @@ func ApplySecretInCrossplaneNamespace(name string, data map[string]string) env.F
 
 // InstallCrossplaneProviderOptions hols information on the tested provider
 type InstallCrossplaneProviderOptions struct {
-	Name             string
-	Package          string
-	ControllerImage  *string // TODO read from package
-	ControllerConfig *vendored.ControllerConfig
+	Name                    string
+	Package                 string
+	ControllerImage         *string // TODO read from package
+	ControllerConfig        *vendored.ControllerConfig
+	DeploymentRuntimeConfig *vendored.DeploymentRuntimeConfig
 }
 
 // InstallCrossplaneProvider returns an env.Func that is used to
@@ -298,6 +305,7 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 			Name             string
 			Package          string
 			ControllerConfig string
+			RuntimeConfig    string
 		}{
 			Name:    opts.Name,
 			Package: opts.Package,
@@ -307,6 +315,13 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 			data.ControllerConfig = opts.Name
 
 			err := applyControllerConfig(ctx, cfg, opts)
+			if err != nil {
+				return ctx, err
+			}
+		}
+		if opts.DeploymentRuntimeConfig != nil {
+			data.RuntimeConfig = opts.DeploymentRuntimeConfig.ObjectMeta.Name
+			err := applyDeploymentRuntimeConfig(ctx, cfg, opts)
 			if err != nil {
 				return ctx, err
 			}
@@ -336,6 +351,26 @@ func applyControllerConfig(ctx context.Context, cfg *envconf.Config, opts Instal
 		return err
 	}
 	res := cl.Resource(controllerConfigSchema)
+	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(config)
+	if err != nil {
+		return err
+	}
+	unstruc := unstructured.Unstructured{Object: data}
+	_, err = res.Create(ctx, &unstruc, metav1.CreateOptions{})
+	return err
+}
+
+func applyDeploymentRuntimeConfig(ctx context.Context, cfg *envconf.Config, opts InstallCrossplaneProviderOptions) error {
+	klog.V(4).Info("Installing DeploymentRuntimeConfig")
+	config := opts.DeploymentRuntimeConfig.DeepCopy()
+	config.TypeMeta.Kind = "DeploymentRuntimeConfig"
+	config.TypeMeta.APIVersion = deploymentRuntimeConfigSchema.GroupVersion().Identifier()
+
+	cl, err := dynamic.NewForConfig(cfg.Client().RESTConfig())
+	if err != nil {
+		return err
+	}
+	res := cl.Resource(deploymentRuntimeConfigSchema)
 	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(config)
 	if err != nil {
 		return err

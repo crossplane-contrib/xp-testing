@@ -233,6 +233,43 @@ spec:
   packagePullPolicy: Never`,
 			},
 		},
+		{
+			description: "with runtimeConfigRef",
+			args: args{
+				template: `apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: {{.Name}}
+spec:
+  package: {{.Package}}
+  packagePullPolicy: Never
+  {{- if .ControllerConfig }}
+  runtimeConfigRef:
+    name: {{.RuntimeConfig}}
+  {{end}}`,
+				data: struct {
+					Name          string
+					Package       string
+					RuntimeConfig string
+				}{
+					Name:          "my-provider",
+					Package:       "my-registry.local/path/to/my-provider:1.2.3",
+					RuntimeConfig: "my-runtime-config-ref",
+				},
+			},
+			expects: expects{
+				rendered: `apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: my-provider
+spec:
+  package: my-registry.local/path/to/my-provider:1.2.3
+  packagePullPolicy: Never
+  runtimeConfigRef:
+    name: my-runtime-config-ref
+`,
+			},
+		},
 	}
 
 	for _, test := range tests {
