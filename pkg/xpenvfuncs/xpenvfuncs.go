@@ -32,7 +32,6 @@ import (
 
 	resHelper "github.com/crossplane-contrib/xp-testing/pkg/resources"
 	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
-	xconditions "github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 
 	"github.com/crossplane-contrib/xp-testing/internal/docker"
 	"github.com/crossplane-contrib/xp-testing/internal/xpkg"
@@ -387,7 +386,7 @@ func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
 			return ctx, err
 		}
 		err = wait.For(
-			xconditions.New(r).ProviderConditionMatch(
+			xpconditions.New(r).ProviderConditionMatch(
 				opts.Name,
 				"Healthy",
 				corev1.ConditionTrue,

@@ -275,7 +275,6 @@ spec:
 	for _, test := range tests {
 		t.Run(
 			test.description, func(t *testing.T) {
-				require.True(t, true)
 				rendered, err := renderTemplate(test.args.template, test.args.data)
 
 				if len(test.expects.errorMessage) == 0 {
