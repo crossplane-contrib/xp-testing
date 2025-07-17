@@ -82,7 +82,7 @@ func WaitForResourcesToBeSynced(
 	ctx context.Context,
 	cfg *envconf.Config,
 	dir string,
-	kind string,
+	objFilterFunc *ObjFilterFunc,
 	opts ...wait.Option,
 ) error {
 	objects, err := getObjectsToImport(ctx, cfg, dir)
@@ -90,9 +90,11 @@ func WaitForResourcesToBeSynced(
 		return err
 	}
 
-	objects = lo.Filter(objects, func(obj k8s.Object, _ int) bool {
-		return obj.GetObjectKind().GroupVersionKind().Kind == kind
-	})
+	if objFilterFunc != nil {
+		objects = lo.Filter(objects, func(obj k8s.Object, _ int) bool {
+			return (*objFilterFunc)(ctx, &obj)
+		})
+	}
 
 	klog.V(4).Infof("Waiting for all objects to become on the following objects\n %s", identifiers(objects))
 
@@ -317,12 +319,17 @@ func AwaitResourceDeletionOrFail(ctx context.Context, t *testing.T, cfg *envconf
 	}
 }
 
+// ObjFilterFunc allows filtering objects that should be
+// waited upon in WaitForResourcesToBeSynced
+type ObjFilterFunc = func(context.Context, *k8s.Object) bool
+
 // ResourceTestConfig is a test configuration for a resource.
 // It contains the kind of resource and the object to be tested
 // and then provides basic CRD tests for the resource.
 type ResourceTestConfig struct {
 	Kind              string
 	Obj               *k8s.Object
+	ObjFilterFunc     *ObjFilterFunc
 	AdditionalSteps   map[string]func(context.Context, *testing.T, *envconf.Config) context.Context
 	ResourceDirectory string
 }
@@ -358,7 +365,7 @@ func (r *ResourceTestConfig) Teardown(ctx context.Context, t *testing.T, cfg *en
 
 // AssessCreate checks that the resource was created successfully.
 func (r *ResourceTestConfig) AssessCreate(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-	if err := WaitForResourcesToBeSynced(ctx, cfg, r.ResourceDirectory, r.Kind, wait.WithTimeout(time.Minute*5)); err != nil {
+	if err := WaitForResourcesToBeSynced(ctx, cfg, r.ResourceDirectory, r.ObjFilterFunc, wait.WithTimeout(time.Minute*5)); err != nil {
 		DumpManagedResources(ctx, t, cfg)
 		t.Fatal(err)
 	}
