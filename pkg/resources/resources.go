@@ -82,12 +82,17 @@ func WaitForResourcesToBeSynced(
 	ctx context.Context,
 	cfg *envconf.Config,
 	dir string,
+	kind string,
 	opts ...wait.Option,
 ) error {
 	objects, err := getObjectsToImport(ctx, cfg, dir)
 	if err != nil {
 		return err
 	}
+
+	objects = lo.Filter(objects, func(obj k8s.Object, _ int) bool {
+		return obj.GetObjectKind().GroupVersionKind().Kind == kind
+	})
 
 	klog.V(4).Infof("Waiting for all objects to become on the following objects\n %s", identifiers(objects))
 
@@ -353,7 +358,7 @@ func (r *ResourceTestConfig) Teardown(ctx context.Context, t *testing.T, cfg *en
 
 // AssessCreate checks that the resource was created successfully.
 func (r *ResourceTestConfig) AssessCreate(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-	if err := WaitForResourcesToBeSynced(ctx, cfg, r.ResourceDirectory, wait.WithTimeout(time.Minute*5)); err != nil {
+	if err := WaitForResourcesToBeSynced(ctx, cfg, r.ResourceDirectory, r.Kind, wait.WithTimeout(time.Minute*5)); err != nil {
 		DumpManagedResources(ctx, t, cfg)
 		t.Fatal(err)
 	}
