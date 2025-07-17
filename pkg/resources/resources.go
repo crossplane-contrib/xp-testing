@@ -82,7 +82,7 @@ func WaitForResourcesToBeSynced(
 	ctx context.Context,
 	cfg *envconf.Config,
 	dir string,
-	objFilterFunc *ObjFilterFunc,
+	objFilterFunc ObjFilterFunc,
 	opts ...wait.Option,
 ) error {
 	objects, err := getObjectsToImport(ctx, cfg, dir)
@@ -92,7 +92,7 @@ func WaitForResourcesToBeSynced(
 
 	if objFilterFunc != nil {
 		objects = lo.Filter(objects, func(obj k8s.Object, _ int) bool {
-			return (*objFilterFunc)(ctx, &obj)
+			return objFilterFunc(ctx, &obj)
 		})
 	}
 
@@ -329,7 +329,7 @@ type ObjFilterFunc = func(context.Context, *k8s.Object) bool
 type ResourceTestConfig struct {
 	Kind              string
 	Obj               *k8s.Object
-	ObjFilterFunc     *ObjFilterFunc
+	ObjFilterFunc     ObjFilterFunc
 	AdditionalSteps   map[string]func(context.Context, *testing.T, *envconf.Config) context.Context
 	ResourceDirectory string
 }
