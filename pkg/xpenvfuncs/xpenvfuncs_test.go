@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/env"
@@ -349,4 +350,57 @@ func TestIgnoreMatchedErr(t *testing.T) {
 			require.NoError(t, err)
 		},
 	)
+}
+
+func Test_ValidateTestSetup(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     ValidateTestSetupOptions
+		wantError bool
+	}{
+		{
+			name: "v2.0.0 setup with registry",
+			setup: ValidateTestSetupOptions{
+				"v2.0.0", "xpkg.crossplane.io", nil,
+			},
+			wantError: true,
+		},
+		{
+			name: ">v2 setup with registry",
+			setup: ValidateTestSetupOptions{
+				"v2.1.0", "xpkg.crossplane.io", nil,
+			},
+			wantError: true,
+		},
+		{
+			name: "<v2 setup with registry",
+			setup: ValidateTestSetupOptions{
+				"v1.20.1", "xpkg.crossplane.io", nil,
+			},
+			wantError: false,
+		},
+		{
+			name: "v2 with controllerconfig",
+			setup: ValidateTestSetupOptions{
+				"v2.0.0", "", &vendored.ControllerConfig{},
+			},
+			wantError: true,
+		},
+		{
+			name:      "implicit v2 without controllerconfig",
+			setup:     ValidateTestSetupOptions{},
+			wantError: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			envFunc := ValidateTestSetup(tt.setup)
+			_, err := envFunc(nil, nil)
+			if tt.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
