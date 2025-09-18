@@ -25,7 +25,7 @@ const (
 	clusterNameEnv  = "E2E_CLUSTER_NAME"
 	defaultPrefix   = "e2e"
 
-	// DockerRegistry is the default docker registry, which can be passed to the crossplane setup
+	// DockerRegistry is the default docker registry, which can be passed to the crossplane setup (prior to v2)
 	DockerRegistry = "index.docker.io"
 )
 
@@ -74,7 +74,6 @@ type ClusterSetup struct {
 // Currently requires a kind.Cluster, only for kind we can detect if a cluster is reusable
 // nolint:interfacer
 func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster) string {
-
 	reuseCluster := envvar.CheckEnvVarExists(reuseClusterEnv)
 	log.V(4).Info("Reusing cluster: ", reuseCluster)
 	name := clusterName(reuseCluster)
@@ -89,6 +88,11 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 	// and create a namespace for the environment
 
 	testEnv.Setup(
+		xpenvfuncs.ValidateTestSetup(xpenvfuncs.ValidateTestSetupOptions{
+			CrossplaneVersion: s.CrossplaneSetup.Version,
+			PackageRegistry:   s.CrossplaneSetup.Registry,
+			ControllerConfig:  s.ControllerConfig,
+		}),
 		envfuncs.CreateCluster(cluster, name),
 	)
 	for _, claFunc := range s.postSetupFuncs {

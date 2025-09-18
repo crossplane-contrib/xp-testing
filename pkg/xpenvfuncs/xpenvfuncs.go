@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,7 +74,7 @@ kind: Provider
 metadata:
   name: {{.Name}}
 spec:
-  package: {{.Name}}
+  package: {{.Package}}
   packagePullPolicy: Never
   {{- if .ControllerConfig }}
   controllerConfigRef:
@@ -95,6 +97,34 @@ var (
 	controllerConfigSchema        = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1alpha1", Resource: "controllerconfigs"}
 	deploymentRuntimeConfigSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1beta1", Resource: "deploymentruntimeconfigs"}
 )
+
+// ValidateTestSetupOptions holds information required to validate the test setup
+type ValidateTestSetupOptions struct {
+	CrossplaneVersion string
+	PackageRegistry   string
+	ControllerConfig  *vendored.ControllerConfig
+}
+
+// validates the test setup to prevent common misconfigurations with the introduction of crossplane v2
+func ValidateTestSetup(opts ValidateTestSetupOptions) env.Func {
+	return func(ctx context.Context, c *envconf.Config) (context.Context, error) {
+		if !isV2(opts.CrossplaneVersion) {
+			return ctx, nil
+		}
+		if opts.PackageRegistry != "" {
+			return nil, errors.New("the registry flag is no longer available in Crossplane v2")
+		}
+		if opts.ControllerConfig != nil {
+			return nil, errors.New("controller config is no longer available in Crossplane v2")
+		}
+		return ctx, nil
+	}
+}
+
+// an empty version results in using the latest stable version which is currently v2
+func isV2(version string) bool {
+	return version == "" || semver.Major(version) == "v2"
+}
 
 // InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster
 func InstallCrossplane(clusterName string, opts ...CrossplaneOpt) env.Func {
@@ -232,7 +262,7 @@ func LoadSchemas(addToSchemaFuncs ...func(s *runtime.Scheme) error) env.Func {
 
 // setupCrossplanePackageCache prepares the crossplane package-cache in the given clusters control plane
 func setupCrossplanePackageCache(clusterName string, cacheName string) env.Func {
-	cacheMount := "/cache"
+	cacheMount := "/cache/xpkg"
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		controlPlaneName := getClusterControlPlaneName(clusterName)
 
@@ -275,7 +305,10 @@ func loadCrossplanePackageToCluster(clusterName string, opts InstallCrossplanePr
 			return ctx, err
 		}
 
-		cachePackagePath := fmt.Sprintf("/cache/%s.gz", opts.Name)
+		cachePackagePath := fullyQualifiedPathName("/cache/xpkg", opts.Package, ".gz")
+		if err := docker.Exec(clusterControlPlaneName, "mkdir", "-m", "777", "-p", filepath.Dir(cachePackagePath)); err != nil {
+			return ctx, err
+		}
 
 		if err = docker.Cp(f.Name(), fmt.Sprintf("%s:%s", clusterControlPlaneName, cachePackagePath)); err != nil {
 			return ctx, err
@@ -283,6 +316,14 @@ func loadCrossplanePackageToCluster(clusterName string, opts InstallCrossplanePr
 
 		return ctx, docker.Exec(clusterControlPlaneName, "chmod", "644", cachePackagePath)
 	}
+}
+
+// (from crossplane internal/xpkg)
+func fullyQualifiedPathName(cacheDir, packageName, ext string) string {
+	full := filepath.Join(cacheDir, packageName)
+	existExt := filepath.Ext(full)
+
+	return full[0:len(full)-len(existExt)] + ext
 }
 
 // loadCrossplaneControllerImageToCluster loads the controller image into the oci cache of the given cluster
