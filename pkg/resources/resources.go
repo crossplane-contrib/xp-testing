@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,7 +31,8 @@ import (
 )
 
 var (
-	providerSchema = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1", Resource: "providers"}
+	providerSchema  = schema.GroupVersionResource{Group: "pkg.crossplane.io", Version: "v1", Resource: "providers"}
+	addToSchemeOnce sync.Once
 )
 
 // ImportResources gets the resources from dir
@@ -167,9 +169,11 @@ func dumpProviders(ctx context.Context, t *testing.T, client *resources.Resource
 func dumpWithCRDs(ctx context.Context, t *testing.T, cfg *envconf.Config, client *resources.Resources) {
 	var crds v1extensions.CustomResourceDefinitionList
 
-	if err := v1extensions.AddToScheme(client.GetScheme()); err != nil {
-		t.Fatal(err)
-	}
+	addToSchemeOnce.Do(func() {
+		if err := v1extensions.AddToScheme(client.GetScheme()); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	if err := client.List(ctx, &crds); err != nil {
 		t.Fatal(err)
