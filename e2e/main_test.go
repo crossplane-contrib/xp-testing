@@ -25,6 +25,7 @@ import (
 )
 
 var testenv env.Environment
+var kindClusterName string
 
 func TestMain(m *testing.M) {
 	var verbosity = 4
@@ -68,6 +69,7 @@ func TestMain(m *testing.M) {
 		},
 	}
 	clusterSetup.PostCreate(func(clusterName string) env.Func {
+		kindClusterName = clusterName
 		return func(ctx context.Context, config *envconf.Config) (context.Context, error) {
 			klog.V(4).Infof("Some function running after the cluster %s has been created", clusterName)
 			return ctx, nil

@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/e2e-framework/klient/decoder"
@@ -87,18 +89,12 @@ func WaitForResourcesToBeSynced(
 	objFilterFunc ObjFilterFunc,
 	opts ...wait.Option,
 ) error {
-	objects, err := getObjectsToImport(ctx, cfg, dir)
+	objects, err := filteredObjects(ctx, cfg, dir, objFilterFunc)
 	if err != nil {
 		return err
 	}
 
-	if objFilterFunc != nil {
-		objects = lo.Filter(objects, func(obj k8s.Object, _ int) bool {
-			return objFilterFunc(ctx, &obj)
-		})
-	}
-
-	klog.V(4).Infof("Waiting for all objects to become on the following objects\n %s", identifiers(objects))
+	klog.V(4).Infof("Waiting for the following objects to become synced and ready\n %s", identifiers(objects))
 
 	res := cfg.Client().Resources()
 
@@ -106,6 +102,32 @@ func WaitForResourcesToBeSynced(
 		xpconditions.New(res).ManagedResourcesReadyAndReady(&mockList{Items: objects}), opts...,
 	)
 	return err
+}
+
+// WaitForResourcesToBePaused waits until all managed resources are synced false with reason ReconcilePaused
+func WaitForResourcesToBePaused(ctx context.Context, cfg *envconf.Config, dir string, objFilterFunc ObjFilterFunc, opts ...wait.Option) error {
+	objects, err := filteredObjects(ctx, cfg, dir, objFilterFunc)
+	if err != nil {
+		return err
+	}
+	klog.V(4).Infof("Waiting for the following objects to be paused\n %s", identifiers(objects))
+	res := cfg.Client().Resources()
+	c := xpconditions.New(res)
+	return wait.For(c.ResourcesMatch(&mockList{Items: objects}, c.IsPaused), opts...)
+}
+
+func filteredObjects(ctx context.Context, cfg *envconf.Config, dir string, objFilterFunc ObjFilterFunc) ([]k8s.Object, error) {
+	objects, err := getObjectsToImport(ctx, cfg, dir)
+	if err != nil {
+		return nil, err
+	}
+
+	if objFilterFunc != nil {
+		objects = lo.Filter(objects, func(obj k8s.Object, _ int) bool {
+			return objFilterFunc(ctx, &obj)
+		})
+	}
+	return objects, nil
 }
 
 type mockList struct {
@@ -384,4 +406,67 @@ func (r *ResourceTestConfig) AssessUpdate(ctx context.Context, t *testing.T, cfg
 // AssessDelete checks that the resource was deleted successfully.
 func (r *ResourceTestConfig) AssessDelete(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 	return DeleteResources(ctx, t, cfg, r.ResourceDirectory, wait.WithTimeout(time.Minute*5))
+}
+
+// PauseResources sets crossplane.io/paused true on every resource in the directory
+func PauseResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string, decoderOptions ...decoder.DecodeOption) {
+	updatePauseAnnotation(ctx, t, cfg, dir, "true", decoderOptions...)
+}
+
+// PauseResources sets crossplane.io/paused false on every resource in the directory
+func ResumeResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string, decoderOptions ...decoder.DecodeOption) {
+	updatePauseAnnotation(ctx, t, cfg, dir, "false", decoderOptions...)
+}
+
+func updatePauseAnnotation(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string, pauseValue string, decoderOptions ...decoder.DecodeOption) {
+	r := resClient(cfg)
+	r.WithNamespace(cfg.Namespace())
+	decoderOptions = append(decoderOptions, decoder.MutateNamespace(cfg.Namespace()))
+	err := decoder.DecodeEachFile(
+		ctx, os.DirFS(dir), "*",
+		PauseAnnotationHandler(r, pauseValue),
+		decoderOptions...,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// PauseAnnotationHandler returns a HandlerFunc that will add/update the crossplane.io/paused annotation to an existing object
+func PauseAnnotationHandler(r *resources.Resources, pauseValue string, opts ...resources.PatchOption) decoder.HandlerFunc {
+	return func(ctx context.Context, obj k8s.Object) error {
+		existingObj := &unstructured.Unstructured{}
+		existingObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+		if err := r.Get(ctx, obj.GetName(), obj.GetNamespace(), existingObj); err != nil {
+			return err
+		}
+		annotations := existingObj.GetAnnotations()
+		annotations["crossplane.io/paused"] = pauseValue
+		patchAnnotations := map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"annotations": annotations,
+			},
+		}
+		patchBytes, err := json.Marshal(patchAnnotations)
+		if err != nil {
+			return err
+		}
+		return r.Patch(ctx, existingObj, k8s.Patch{
+			PatchType: types.MergePatchType,
+			Data:      patchBytes,
+		}, opts...)
+	}
+}
+
+// ReplaceHandler returns a HandlerFunc that will replace existing objects
+func ReplaceHandler(r *resources.Resources, opts ...resources.UpdateOption) decoder.HandlerFunc {
+	return func(ctx context.Context, obj k8s.Object) error {
+		existingObj := &unstructured.Unstructured{}
+		existingObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+		if err := r.Get(ctx, obj.GetName(), obj.GetNamespace(), existingObj); err != nil {
+			return err
+		}
+		obj.SetResourceVersion(existingObj.GetResourceVersion())
+		return r.Update(ctx, obj, opts...)
+	}
 }
