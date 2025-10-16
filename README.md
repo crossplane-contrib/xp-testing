@@ -6,11 +6,12 @@
 This testing framework helps to set up test suites, by handling the deployments of crossplane and providers & ensures 
 providers are loaded into the cluster & helpers to speedup test development.
 
-* [`pkg/xpconditions`](./pkg/xpconditions) supports with assertions
 * [`pkg/resources`](./pkg/resources) helps with handling of importing and deleting of resources while testing & an opinionated way to 
   create Test Features
 * [`pkg/setup`](./pkg/setup) provides a default cluster setup, ready to take just the most necessary information and boostrap the 
   test suite
+* [`pkg/upgrade`](./pkg/upgrade) provides basic functionality to compose provider upgrade test features
+* [`pkg/xpconditions`](./pkg/xpconditions) supports with assertions
 * [`pkg/xpenvfuncs`](./pkg/xpenvfuncs) provide basic functions to compose a test environment
 
  
@@ -20,6 +21,8 @@ For getting started guides, installation, deployment, and administration, check 
 Crossplane [document](https://crossplane.io/docs/latest).
 
 A reference implementation of `xp-testing` is available in [provider-argocd](https://github.com/crossplane-contrib/provider-argocd/pull/89/files).
+
+The [nop_upgrade_test](./e2e/nop_upgrade_test.go) demonstrates the upgrade test functionality with [provider-nop](https://github.com/crossplane-contrib/provider-nop).
 
 ## Contributing
 

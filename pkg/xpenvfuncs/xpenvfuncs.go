@@ -17,6 +17,7 @@ import (
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -209,10 +210,10 @@ type InstallCrossplaneProviderOptions struct {
 // install a crossplane provider into the active cluster
 func InstallCrossplaneProvider(clusterName string, opts InstallCrossplaneProviderOptions) env.Func {
 	return Compose(
-		loadCrossplanePackageToCluster(clusterName, opts),
-		loadCrossplaneControllerImageToCluster(clusterName, opts),
+		loadCrossplanePackageToCluster(clusterName, opts.Package),
+		loadCrossplaneControllerImageToCluster(clusterName, opts.ControllerImage),
 		installCrossplaneProviderEnvFunc(clusterName, opts),
-		awaitProviderHealthy(opts),
+		awaitProviderHealthy(opts.Name),
 	)
 }
 
@@ -289,7 +290,7 @@ func setupCrossplanePackageCache(clusterName string, cacheName string) env.Func 
 }
 
 // loadCrossplanePackageToCluster loads the crossplane config package into the given clusters package cache folder (/cache)
-func loadCrossplanePackageToCluster(clusterName string, opts InstallCrossplaneProviderOptions) env.Func {
+func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		f, err := os.CreateTemp("", "xpkg")
 		if err != nil {
@@ -301,11 +302,11 @@ func loadCrossplanePackageToCluster(clusterName string, opts InstallCrossplanePr
 
 		clusterControlPlaneName := getClusterControlPlaneName(clusterName)
 
-		if err = xpkg.SavePackage(opts.Package, f.Name()); err != nil {
+		if err = xpkg.SavePackage(pkg, f.Name()); err != nil {
 			return ctx, err
 		}
 
-		cachePackagePath := fullyQualifiedPathName("/cache/xpkg", opts.Package, ".gz")
+		cachePackagePath := fullyQualifiedPathName("/cache/xpkg", pkg, ".gz")
 		if err := docker.Exec(clusterControlPlaneName, "mkdir", "-m", "777", "-p", filepath.Dir(cachePackagePath)); err != nil {
 			return ctx, err
 		}
@@ -327,19 +328,20 @@ func fullyQualifiedPathName(cacheDir, packageName, ext string) string {
 }
 
 // loadCrossplaneControllerImageToCluster loads the controller image into the oci cache of the given cluster
-func loadCrossplaneControllerImageToCluster(clusterName string, opts InstallCrossplaneProviderOptions) env.Func {
-	if opts.ControllerImage == nil {
+func loadCrossplaneControllerImageToCluster(clusterName string, image *string) env.Func {
+	if image == nil {
 		// no-op
 		return func(ctx context.Context, config *envconf.Config) (context.Context, error) {
 			return ctx, nil
 		}
 	}
-	return envfuncs.LoadDockerImageToCluster(clusterName, *opts.ControllerImage)
+	return envfuncs.LoadDockerImageToCluster(clusterName, *image)
 }
 
 // installCrossplaneProviderEnvFunc is an env.Func to install a crossplane provider into the given cluster
 func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOptions) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		klog.V(4).Infof("Installing crossplane provider %s: %s", opts.Name, opts.Package)
 
 		data := struct {
 			Name             string
@@ -417,10 +419,21 @@ func applyDeploymentRuntimeConfig(ctx context.Context, cfg *envconf.Config, opts
 	}
 	unstruc := unstructured.Unstructured{Object: data}
 	_, err = res.Create(ctx, &unstruc, metav1.CreateOptions{})
+	if err != nil && apierrors.IsAlreadyExists(err) {
+		// replace the config if it already exists
+		obj, err := res.Get(ctx, unstruc.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		unstruc.SetResourceVersion(obj.GetResourceVersion())
+		if _, err = res.Update(ctx, &unstruc, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+	}
 	return err
 }
 
-func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
+func awaitProviderHealthy(name string) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		r, err := resources.New(cfg.Client().RESTConfig())
 		if err != nil {
@@ -428,7 +441,7 @@ func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
 		}
 		err = wait.For(
 			xpconditions.New(r).ProviderConditionMatch(
-				opts.Name,
+				name,
 				"Healthy",
 				corev1.ConditionTrue,
 			), wait.WithTimeout(time.Minute*5),
@@ -437,14 +450,20 @@ func awaitProviderHealthy(opts InstallCrossplaneProviderOptions) env.Func {
 	}
 }
 
-// applyResources is an equivalent for kubectl apply
+// applyResources creates or replaces objects that already exist
 func applyResources(ctx context.Context, cfg *envconf.Config, crs string) (context.Context, error) {
 	r, err := resources.New(cfg.Client().RESTConfig())
 	if err != nil {
 		return ctx, err
 	}
 
-	return ctx, decoder.DecodeEach(ctx, strings.NewReader(crs), decoder.CreateHandler(r))
+	if err := decoder.DecodeEach(ctx, strings.NewReader(crs), decoder.CreateHandler(r)); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return ctx, decoder.DecodeEach(ctx, strings.NewReader(crs), resHelper.ReplaceHandler(r))
+		}
+		return ctx, err
+	}
+	return ctx, nil
 }
 
 // getClusterControlPlaneName returns the supposed name of the given clusters control plane
