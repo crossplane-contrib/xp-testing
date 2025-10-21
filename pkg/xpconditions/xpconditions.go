@@ -64,6 +64,10 @@ func ignoreNotFound(err error) error {
 }
 
 func checkCondition(unstruc *unstructured.Unstructured, desiredType string, desiredStatus corev1.ConditionStatus) bool {
+	return checkConditionWithReason(unstruc, desiredType, desiredStatus, "")
+}
+
+func checkConditionWithReason(unstruc *unstructured.Unstructured, desiredType string, desiredStatus corev1.ConditionStatus, desiredReason string) bool {
 
 	conditions, ok, err := unstructured.NestedSlice(unstruc.UnstructuredContent(), "status", "conditions")
 	if err != nil {
@@ -76,6 +80,7 @@ func checkCondition(unstruc *unstructured.Unstructured, desiredType string, desi
 
 	status := ""
 	message := ""
+	reason := ""
 	for _, condition := range conditions {
 		c := condition.(map[string]interface{})
 		curType := c["type"]
@@ -85,16 +90,31 @@ func checkCondition(unstruc *unstructured.Unstructured, desiredType string, desi
 			if convertible {
 				message = msg
 			}
+			if c["reason"] != nil {
+				reason = c["reason"].(string)
+			}
 		}
 	}
 	matchedConditionStatus := false
 	if status == string(desiredStatus) {
 		matchedConditionStatus = true
 	}
+	matchedConditionReason := true
+	if desiredReason != "" {
+		matchedConditionReason = reason == desiredReason
+	}
 
-	klog.V(4).Infof("Object (%s) %s, condition: %s: %s, matched: %t, message: %s", unstruc.GroupVersionKind().String(), unstruc.GetName(), desiredType, status, matchedConditionStatus, message)
+	klog.V(4).Infof("Object (%s) %s, condition: %s: %s, matched: %t, message: %s, reason: %s",
+		unstruc.GroupVersionKind().String(),
+		unstruc.GetName(),
+		desiredType,
+		status,
+		matchedConditionStatus,
+		message,
+		reason,
+	)
 
-	return matchedConditionStatus
+	return matchedConditionStatus && matchedConditionReason
 }
 
 // IsManagedResourceReadyAndReady returns if a managed resource has condtions Synced = True and Ready = True
@@ -103,6 +123,11 @@ func (c *Conditions) IsManagedResourceReadyAndReady(object k8s.Object) bool {
 	us := convertToUnstructured(object)
 	return checkCondition(us, "Synced", corev1.ConditionTrue) &&
 		checkCondition(us, "Ready", corev1.ConditionTrue)
+}
+
+func (c *Conditions) IsPaused(object k8s.Object) bool {
+	obj := convertToUnstructured(object)
+	return checkConditionWithReason(obj, "Synced", corev1.ConditionFalse, "ReconcilePaused")
 }
 
 func convertToUnstructured(object k8s.Object) *unstructured.Unstructured {

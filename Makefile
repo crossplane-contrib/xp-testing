@@ -12,6 +12,10 @@ test:
 e2e:
 	go test -v ./e2e/... -tags=e2e -count=1 -test.v
 
+.PHONY: upgrade
+upgrade:
+	go test -v ./upgrade/... -tags=e2e -count=1 -test.v
+
 .PHONY: build
 build:
 	go build -v ./...
@@ -20,5 +24,5 @@ build:
 mod:
 	go mod tidy
 .PHONY: all
-all: mod lint build test e2e
+all: mod lint build test e2e upgrade
 
