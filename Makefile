@@ -14,7 +14,7 @@ e2e:
 
 .PHONY: upgrade
 upgrade:
-	go test -v ./upgrade/... -tags=e2e -count=1 -test.v
+	go test -v ./upgrade/... -tags=upgrade -count=1 -test.v
 
 .PHONY: build
 build:
