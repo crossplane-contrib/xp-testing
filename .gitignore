@@ -24,5 +24,6 @@ go.work
 .idea
 
 e2e/logs
+upgrade/logs
 
 .DS_Store

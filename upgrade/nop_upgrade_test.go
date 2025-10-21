@@ -10,23 +10,38 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
-func TestUpgradeProvider(t *testing.T) {
+// TestUpgradProviderFeature demonstrates usage of the UpgradeFeatureBuilder
+func TestUpgradeProviderFeature(t *testing.T) {
 	upgradeTest := upgrade.UpgradeTest{
 		ClusterName:         kindClusterName,
 		ProviderName:        "provider-nop",
 		FromProviderPackage: "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
 		ToProviderPackage:   "xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.4.0",
 		ResourceDirectories: []string{
-			"crs/Nop",
+			"../e2e/crs/Nop",
 		},
 	}
-	mustPullPackage(upgradeTest.FromProviderPackage)
-	mustPullPackage(upgradeTest.ToProviderPackage)
 
 	// use the upgrade test feature
 	upgradeFeature := upgradeTest.UpgradeFeatureBuilder("upgrade provider-nop from 0.2.0 to 0.4.0", time.Minute*2)
+	testenv.Test(t, upgradeFeature.Feature())
+}
 
-	// build the same upgrade scenario with custom builder and e.g. different timeouts per assessment step
+// TestUpgradProviderCustom demonstrates how to build a custom upgrade feature
+func TestUpgradeProviderCustom(t *testing.T) {
+	upgradeTest := upgrade.UpgradeTest{
+		ClusterName:         kindClusterName,
+		ProviderName:        "provider-nop",
+		FromProviderPackage: "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
+		ToProviderPackage:   "xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.4.0",
+		ResourceDirectories: []string{
+			"../e2e/crs/Nop",
+		},
+	}
+
+	// build the UpgradeFeatureBuilder scenario with a custom builder and e.g. different timeouts per assessment step
+	// this enables you to implement additional setup, assessment and teardown steps like more sophisticated pre/post upgrade conditions, etc.
+	// or to completely re-orchestrate the upgrade steps
 	customFeatureUpgrade := features.New("custom build upgrade").
 		Setup(upgrade.ApplyProvider(kindClusterName, upgradeTest.FromProviderInstallOptions())).
 		Setup(upgrade.ImportResources(upgradeTest.ResourceDirectories)).
@@ -38,7 +53,8 @@ func TestUpgradeProvider(t *testing.T) {
 			WaitForPause:        time.Minute * 1,
 		})).
 		Assess("verify resources after upgrade", upgrade.VerifyResources(upgradeTest.ResourceDirectories, time.Minute*3)).
-		Teardown(upgrade.DeleteResources(upgradeTest.ResourceDirectories, time.Minute*2))
+		Teardown(upgrade.DeleteResources(upgradeTest.ResourceDirectories, time.Minute*2)).
+		Teardown(upgrade.DeleteProvider(upgradeTest.ProviderName))
 
-	testenv.Test(t, upgradeFeature.Feature(), customFeatureUpgrade.Feature())
+	testenv.Test(t, customFeatureUpgrade.Feature())
 }
