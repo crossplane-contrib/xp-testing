@@ -15,8 +15,8 @@ func TestUpgradeProviderFeature(t *testing.T) {
 	upgradeTest := upgrade.UpgradeTest{
 		ClusterName:         kindClusterName,
 		ProviderName:        "provider-nop",
-		FromProviderPackage: "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
-		ToProviderPackage:   "xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.4.0",
+		FromProviderPackage: fromPackage,
+		ToProviderPackage:   toPackage,
 		ResourceDirectories: []string{
 			"../e2e/crs/Nop",
 		},
@@ -32,8 +32,8 @@ func TestUpgradeProviderCustom(t *testing.T) {
 	upgradeTest := upgrade.UpgradeTest{
 		ClusterName:         kindClusterName,
 		ProviderName:        "provider-nop",
-		FromProviderPackage: "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
-		ToProviderPackage:   "xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.4.0",
+		FromProviderPackage: fromPackage,
+		ToProviderPackage:   toPackage,
 		ResourceDirectories: []string{
 			"../e2e/crs/Nop",
 		},

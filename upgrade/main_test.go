@@ -23,6 +23,9 @@ import (
 var testenv env.Environment
 var kindClusterName string
 
+const fromPackage = "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0"
+const toPackage = "xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.4.0"
+
 // The environment setup for upgrade tests uses existing e2e setup functionality to create a kind cluster, install crossplane, etc.
 // The main differences compared to regular e2e provider tests are the following:
 // 1. upgrade tests must be able to install multiple provider versions
@@ -32,8 +35,6 @@ func TestMain(m *testing.M) {
 	logging.EnableVerboseLogging(&verbosity)
 	testenv = env.New()
 
-	const fromPackage = "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0"
-	const toPackage = "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.4.0"
 	mustPullPackage(fromPackage)
 	mustPullPackage(toPackage)
 
