@@ -22,7 +22,7 @@ Crossplane [document](https://crossplane.io/docs/latest).
 
 A reference implementation of `xp-testing` is available in [provider-argocd](https://github.com/crossplane-contrib/provider-argocd/pull/89/files).
 
-The [nop_upgrade_test](./e2e/nop_upgrade_test.go) demonstrates the upgrade test functionality with [provider-nop](https://github.com/crossplane-contrib/provider-nop).
+The [nop_upgrade_test](./upgrade/nop_upgrade_test.go) demonstrates the upgrade test functionality with [provider-nop](https://github.com/crossplane-contrib/provider-nop).
 
 ## Contributing
 
