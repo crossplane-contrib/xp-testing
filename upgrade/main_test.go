@@ -1,6 +1,6 @@
-//go:build e2e
+//go:build upgrade
 
-package e2e
+package upgrade
 
 import (
 	"context"
