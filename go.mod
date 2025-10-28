@@ -9,7 +9,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.52.0
 	github.com/stretchr/testify v1.11.1
-	github.com/vladimirvivien/gexe v0.4.1
+	github.com/vladimirvivien/gexe v0.5.0
 	golang.org/x/mod v0.29.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.32.1
