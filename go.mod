@@ -8,7 +8,7 @@ require (
 	github.com/google/go-containerregistry v0.20.2
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.52.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/vladimirvivien/gexe v0.4.1
 	golang.org/x/mod v0.29.0
 	gopkg.in/yaml.v2 v2.4.0
