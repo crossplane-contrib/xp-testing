@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/samber/lo"
-	"gopkg.in/yaml.v2"
 	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/klient/wait/conditions"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
+	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/xpconditions"
 )
