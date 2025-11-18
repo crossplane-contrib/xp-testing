@@ -137,7 +137,7 @@ func VerifyResources(directories []string, timeout time.Duration) features.Func 
 func DeleteResources(directories []string, timeout time.Duration) features.Func {
 	return func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 		klog.V(4).Infof("delete resources of directories %s", strings.Join(directories, ", "))
-		return resources.DeleteResourcesMultiple(ctx, t, c, directories, wait.WithTimeout(timeout))
+		return resources.DeleteResourcesFromDirs(ctx, t, c, directories, wait.WithTimeout(timeout))
 	}
 }
 

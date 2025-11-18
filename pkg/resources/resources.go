@@ -271,11 +271,11 @@ func dumpResourcesOfCRDs(ctx context.Context, t *testing.T, dynamiq dynamic.Inte
 
 // DeleteResources deletes previously imported resources
 func DeleteResources(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDir string, timeout wait.Option) context.Context {
-	return DeleteResourcesMultiple(ctx, t, cfg, []string{manifestDir}, timeout)
+	return DeleteResourcesFromDirs(ctx, t, cfg, []string{manifestDir}, timeout)
 }
 
-// DeleteResourcesMultiple deletes previously imported resources from multiple directories
-func DeleteResourcesMultiple(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDirs []string, timeout wait.Option) context.Context {
+// DeleteResourcesFromDirs deletes previously imported resources from multiple directories
+func DeleteResourcesFromDirs(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDirs []string, timeout wait.Option) context.Context {
 	klog.V(4).Info("Attempt to delete previously imported resources")
 	r, _ := GetResourcesWithRESTConfig(cfg)
 	objects, err := getObjectsToImport(ctx, cfg, manifestDirs)
