@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -135,11 +136,8 @@ func VerifyResources(directories []string, timeout time.Duration) features.Func 
 // DeleteResources iterates over each resource directory, deletes each resource and waits for the deletion to be successful.
 func DeleteResources(directories []string, timeout time.Duration) features.Func {
 	return func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
-		for _, dir := range directories {
-			klog.V(4).Infof("delete resources of directory %s", dir)
-			ctx = resources.DeleteResources(ctx, t, c, dir, wait.WithTimeout(timeout))
-		}
-		return ctx
+		klog.V(4).Infof("delete resources of directories %s", strings.Join(directories, ", "))
+		return resources.DeleteResourcesFromDirs(ctx, t, c, directories, wait.WithTimeout(timeout))
 	}
 }
 

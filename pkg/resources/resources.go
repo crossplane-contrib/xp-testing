@@ -117,7 +117,7 @@ func WaitForResourcesToBePaused(ctx context.Context, cfg *envconf.Config, dir st
 }
 
 func filteredObjects(ctx context.Context, cfg *envconf.Config, dir string, objFilterFunc ObjFilterFunc) ([]k8s.Object, error) {
-	objects, err := getObjectsToImport(ctx, cfg, dir)
+	objects, err := getObjectsToImport(ctx, cfg, []string{dir})
 	if err != nil {
 		return nil, err
 	}
@@ -149,21 +149,28 @@ func identifiers(objects []k8s.Object) string {
 	return val
 }
 
-func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dir string) ([]k8s.Object, error) {
+func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dirs []string) ([]k8s.Object, error) {
 	r := resClient(cfg)
 
 	r.WithNamespace(cfg.Namespace())
 
 	objects := make([]k8s.Object, 0)
-	err := decoder.DecodeEachFile(
-		ctx, os.DirFS(dir), "*",
-		func(ctx context.Context, obj k8s.Object) error {
-			objects = append(objects, obj)
-			return nil
-		},
-		decoder.MutateNamespace(cfg.Namespace()),
-	)
-	return objects, err
+	for _, dir := range dirs {
+		err := decoder.DecodeEachFile(
+			ctx, os.DirFS(dir), "*",
+			func(ctx context.Context, obj k8s.Object) error {
+				objects = append(objects, obj)
+				return nil
+			},
+			decoder.MutateNamespace(cfg.Namespace()),
+		)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return objects, nil
 }
 
 // DumpManagedResources dumps resources with CRDs and Providers
@@ -264,13 +271,18 @@ func dumpResourcesOfCRDs(ctx context.Context, t *testing.T, dynamiq dynamic.Inte
 
 // DeleteResources deletes previously imported resources
 func DeleteResources(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDir string, timeout wait.Option) context.Context {
+	return DeleteResourcesFromDirs(ctx, t, cfg, []string{manifestDir}, timeout)
+}
+
+// DeleteResourcesFromDirs deletes previously imported resources from multiple directories
+func DeleteResourcesFromDirs(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDirs []string, timeout wait.Option) context.Context {
 	klog.V(4).Info("Attempt to delete previously imported resources")
 	r, _ := GetResourcesWithRESTConfig(cfg)
-	objects, err := getObjectsToImport(ctx, cfg, manifestDir)
+	objects, err := getObjectsToImport(ctx, cfg, manifestDirs)
 	if err != nil {
 		t.Fatal(objects)
 	}
-	if err = deleteObjects(ctx, cfg, manifestDir); err != nil && !errors.IsNotFound(err) {
+	if err = deleteObjects(ctx, cfg, manifestDirs); err != nil && !errors.IsNotFound(err) {
 		t.Fatal(err)
 	}
 
@@ -283,15 +295,23 @@ func DeleteResources(ctx context.Context, t *testing.T, cfg *envconf.Config, man
 	return ctx
 }
 
-func deleteObjects(ctx context.Context, cfg *envconf.Config, dir string) error {
+func deleteObjects(ctx context.Context, cfg *envconf.Config, dirs []string) error {
 	r := resClient(cfg)
 	r.WithNamespace(cfg.Namespace())
 
-	return decoder.DecodeEachFile(
-		ctx, os.DirFS(dir), "*",
-		decoder.DeleteHandler(r),
-		decoder.MutateNamespace(cfg.Namespace()),
-	)
+	for _, dir := range dirs {
+		err := decoder.DecodeEachFile(
+			ctx, os.DirFS(dir), "*",
+			decoder.DeleteHandler(r),
+			decoder.MutateNamespace(cfg.Namespace()),
+		)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // AwaitResourceUpdateOrError waits for a given resource to update with a timeout of 3 minutes
@@ -413,7 +433,7 @@ func PauseResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir 
 	updatePauseAnnotation(ctx, t, cfg, dir, "true", decoderOptions...)
 }
 
-// PauseResources sets crossplane.io/paused false on every resource in the directory
+// ResumeResources sets crossplane.io/paused false on every resource in the directory
 func ResumeResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string, decoderOptions ...decoder.DecodeOption) {
 	updatePauseAnnotation(ctx, t, cfg, dir, "false", decoderOptions...)
 }
