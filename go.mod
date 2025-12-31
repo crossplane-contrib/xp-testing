@@ -2,7 +2,7 @@ module github.com/crossplane-contrib/xp-testing
 
 go 1.24.0
 
-toolchain go1.24.5
+toolchain go1.25.5
 
 require (
 	github.com/google/go-containerregistry v0.20.2
