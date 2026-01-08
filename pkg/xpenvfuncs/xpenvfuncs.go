@@ -155,14 +155,16 @@ func InstallCrossplane(clusterName string, opts ...CrossplaneOpt) env.Func {
 				return ctx, errors.Wrap(err, "install crossplane func: failed to upgrade helm repo")
 			}
 
-			helmInstallOpts := []helm.Option{
+			helmInstallOpts := make([]helm.Option, 0, 6+len(opts))
+			helmInstallOpts = append(helmInstallOpts,
 				helm.WithName("crossplane"),
 				helm.WithNamespace("crossplane-system"),
-				helm.WithReleaseName(helmRepoName + "/crossplane"),
+				helm.WithReleaseName(helmRepoName+"/crossplane"),
 				helm.WithArgs("--set", fmt.Sprintf("packageCache.pvc=%s", cacheName)),
 				helm.WithTimeout("10m"),
 				helm.WithWait(),
-			}
+			)
+
 			helmInstallOpts = append(helmInstallOpts, opts...)
 
 			if err := manager.RunInstall(helmInstallOpts...); err != nil {
