@@ -216,12 +216,8 @@ func dumpWithCRDs(ctx context.Context, t *testing.T, cfg *envconf.Config, client
 	}
 	dynamiq := dynamic.NewForConfigOrDie(cfg.Client().RESTConfig())
 	for _, crd := range relevantCRDs {
-		if crd.Spec.Scope == v1extensions.ClusterScoped {
-			for _, version := range crd.Spec.Versions {
-				dumpResourcesOfCRDs(ctx, t, dynamiq, crd, version)
-			}
-		} else {
-			t.Logf("Skipped %s, since its not cluster scoped", crd.Spec.Names.Kind)
+		for _, version := range crd.Spec.Versions {
+			dumpResourcesOfCRDs(ctx, t, dynamiq, crd, version)
 		}
 	}
 }
