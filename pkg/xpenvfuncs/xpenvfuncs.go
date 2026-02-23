@@ -13,6 +13,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/docker/docker/client"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
@@ -92,6 +94,8 @@ const (
 	// CrossplaneNamespace the namespace crossplane will be installed to
 	CrossplaneNamespace   = "crossplane-system"
 	errNoClusterInContext = "could get get cluster with this name from context"
+	// for images that are not pulled from a registry
+	localImageDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 var (
@@ -308,16 +312,34 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 			return ctx, err
 		}
 
-		cachePackagePath := fullyQualifiedPathName("/cache/xpkg", pkg, ".gz")
-		if err := docker.Exec(clusterControlPlaneName, "mkdir", "-m", "777", "-p", filepath.Dir(cachePackagePath)); err != nil {
+		ref, err := name.ParseReference(pkg)
+		if err != nil {
 			return ctx, err
 		}
 
-		if err = docker.Cp(f.Name(), fmt.Sprintf("%s:%s", clusterControlPlaneName, cachePackagePath)); err != nil {
+		digest, err := retrieveDigest(ctx, pkg)
+		if err != nil {
 			return ctx, err
 		}
 
-		return ctx, docker.Exec(clusterControlPlaneName, "chmod", "644", cachePackagePath)
+		cacheKeys := []string{
+			fullyQualifiedPathName("/cache/xpkg/", pkg, ".gz"),
+			fullyQualifiedPathName("/cache/xpkg/", friendlyID(parsePackageSourceFromReference(ref), digest), ".gz"),
+		}
+
+		for _, key := range cacheKeys {
+			if err := docker.Exec(clusterControlPlaneName, "mkdir", "-m", "777", "-p", filepath.Dir(key)); err != nil {
+				return ctx, err
+			}
+			if err := docker.Cp(f.Name(), fmt.Sprintf("%s:%s", clusterControlPlaneName, key)); err != nil {
+				return ctx, err
+			}
+			if err := docker.Exec(clusterControlPlaneName, "chmod", "644", key); err != nil {
+				return ctx, err
+			}
+		}
+
+		return ctx, nil
 	}
 }
 
@@ -327,6 +349,68 @@ func fullyQualifiedPathName(cacheDir, packageName, ext string) string {
 	existExt := filepath.Ext(full)
 
 	return full[0:len(full)-len(existExt)] + ext
+}
+
+func retrieveDigest(ctx context.Context, img string) (string, error) {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return "", err
+	}
+	inspect, err := cli.ImageInspect(ctx, img)
+	if err != nil {
+		return "", err
+	}
+	if len(inspect.RepoDigests) > 0 {
+		repoDigest := inspect.RepoDigests[0]
+		spl := strings.Split(repoDigest, "@")
+		return spl[1], nil
+	}
+	return localImageDigest, nil
+}
+
+// source: crossplane/internal/xpkg
+func parsePackageSourceFromReference(ref name.Reference) string {
+	return strings.TrimRight(strings.TrimSuffix(ref.String(), ref.Identifier()), ":@")
+}
+
+// friendlyID builds a valid DNS label string made up of the name of a package
+// and its image digest.
+// source: crossplane/internal/xpkg/name.go
+func friendlyID(name, hash string) string {
+	return toDNSLabel(strings.Join([]string{truncate(name, 50), truncate(hash, 12)}, "-"))
+}
+
+// toDNSLabel converts the string to a valid DNS label.
+// source: crossplane/internal/xpkg/name.go
+// nolint:gocyclo
+func toDNSLabel(s string) string {
+	var cut strings.Builder
+
+	for i := range s {
+		b := s[i]
+		if ('a' <= b && b <= 'z') || ('0' <= b && b <= '9') {
+			cut.WriteByte(b)
+		}
+
+		if (b == '.' || b == '/' || b == ':' || b == '-') && (i != 0 && i != 62 && i != len(s)-1) {
+			cut.WriteByte('-')
+		}
+
+		if i == 62 {
+			break
+		}
+	}
+
+	return strings.Trim(cut.String(), "-")
+}
+
+func truncate(str string, num int) string {
+	t := str
+	if len(str) > num {
+		t = str[0:num]
+	}
+
+	return t
 }
 
 // loadCrossplaneControllerImageToCluster loads the controller image into the oci cache of the given cluster
