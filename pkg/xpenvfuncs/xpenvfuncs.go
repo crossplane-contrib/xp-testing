@@ -438,6 +438,9 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 		if err != nil {
 			return ctx, err
 		}
+		if digest == localImageDigest {
+			opts.Package += localImageDigest
+		}
 
 		data := struct {
 			Name             string
@@ -446,7 +449,7 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 			RuntimeConfig    string
 		}{
 			Name:    opts.Name,
-			Package: fmt.Sprintf("%s@%s", opts.Package, digest),
+			Package: opts.Package,
 		}
 
 		if opts.ControllerConfig != nil {
