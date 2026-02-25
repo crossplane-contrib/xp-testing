@@ -312,19 +312,24 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 			return ctx, err
 		}
 
-		ref, err := name.ParseReference(pkg)
-		if err != nil {
-			return ctx, err
-		}
-
 		digest, err := retrieveDigest(ctx, pkg)
 		if err != nil {
 			return ctx, err
 		}
+		var friendlyIdentifier string
+		if digest == localImageDigest {
+			friendlyIdentifier = friendlyID(pkg, digest)
+		} else {
+			ref, err := name.ParseReference(pkg)
+			if err != nil {
+				return ctx, err
+			}
+			friendlyIdentifier = friendlyID(parsePackageSourceFromReference(ref), digest)
+		}
 
 		cacheKeys := []string{
 			fullyQualifiedPathName("/cache/xpkg/", pkg, ".gz"),
-			fullyQualifiedPathName("/cache/xpkg/", friendlyID(parsePackageSourceFromReference(ref), digest), ".gz"),
+			fullyQualifiedPathName("/cache/xpkg/", friendlyIdentifier, ".gz"),
 		}
 
 		for _, key := range cacheKeys {
@@ -429,6 +434,11 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		klog.V(4).Infof("Installing crossplane provider %s: %s", opts.Name, opts.Package)
 
+		digest, err := retrieveDigest(ctx, opts.Package)
+		if err != nil {
+			return ctx, err
+		}
+
 		data := struct {
 			Name             string
 			Package          string
@@ -436,7 +446,7 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 			RuntimeConfig    string
 		}{
 			Name:    opts.Name,
-			Package: opts.Package,
+			Package: fmt.Sprintf("%s@%s", opts.Package, digest),
 		}
 
 		if opts.ControllerConfig != nil {
