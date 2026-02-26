@@ -312,24 +312,9 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 			return ctx, err
 		}
 
-		digest, err := retrieveDigest(ctx, pkg)
+		cacheKeys, err := generatePackageCacheKeys(ctx, pkg, retrieveDigest)
 		if err != nil {
 			return ctx, err
-		}
-		var friendlyIdentifier string
-		if digest == localImageDigest {
-			friendlyIdentifier = friendlyID(pkg, digest)
-		} else {
-			ref, err := name.ParseReference(pkg)
-			if err != nil {
-				return ctx, err
-			}
-			friendlyIdentifier = friendlyID(parsePackageSourceFromReference(ref), digest)
-		}
-
-		cacheKeys := []string{
-			fullyQualifiedPathName("/cache/xpkg/", pkg, ".gz"),
-			fullyQualifiedPathName("/cache/xpkg/", friendlyIdentifier, ".gz"),
 		}
 
 		for _, key := range cacheKeys {
@@ -346,6 +331,29 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 
 		return ctx, nil
 	}
+}
+
+type retrieveDigestFunc func(context.Context, string) (string, error)
+
+func generatePackageCacheKeys(ctx context.Context, pkg string, digestFunc retrieveDigestFunc) ([]string, error) {
+	digest, err := digestFunc(ctx, pkg)
+	if err != nil {
+		return nil, err
+	}
+	var friendlyIdentifier string
+	if digest == localImageDigest {
+		friendlyIdentifier = friendlyID(pkg, digest)
+	} else {
+		ref, err := name.ParseReference(pkg)
+		if err != nil {
+			return nil, err
+		}
+		friendlyIdentifier = friendlyID(parsePackageSourceFromReference(ref), digest)
+	}
+	return []string{
+		fullyQualifiedPathName("/cache/xpkg/", pkg, ".gz"),
+		fullyQualifiedPathName("/cache/xpkg/", friendlyIdentifier, ".gz"),
+	}, nil
 }
 
 // (from crossplane internal/xpkg)
