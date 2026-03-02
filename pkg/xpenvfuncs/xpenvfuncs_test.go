@@ -7,6 +7,7 @@ import (
 
 	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -401,6 +402,70 @@ func Test_ValidateTestSetup(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		})
+	}
+}
+
+func Test_generatePackageCacheKeys(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		pkg        string
+		digestFunc retrieveDigestFunc
+		want       []string
+		wantErr    bool
+	}{
+		{
+			name: "remote image",
+			pkg:  "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
+			digestFunc: func(ctx context.Context, s string) (string, error) {
+				return "sha256:552a394a8accd2b4d37fc5858abe93d311e727eafb3c00636e11c72572873e48", nil
+			},
+			want: []string{
+				// note that the pkg repo name .0 is interpreted as file extension pre v2.2 and is replaced with gz
+				"/cache/xpkg/xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.gz", // < v2.2
+				// note that the image tag is cut off
+				"/cache/xpkg/xpkg-upbound-io-crossplane-contrib-provider-nop-sha256-552a3.gz", // >= v2.2
+			},
+			wantErr: false,
+		},
+		{
+			name: "local image",
+			pkg:  "index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty",
+			digestFunc: func(ctx context.Context, s string) (string, error) {
+				return localImageDigest, nil
+			},
+			want: []string{
+				// note that pkg repo name does not contain a file extension and remains completely the same
+				"/cache/xpkg/index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty.gz", // < v2.2
+				// note that the image tag is not cut off but truncated
+				"/cache/xpkg/index-docker-io-build-908b1e2d-provider-nop-5eaddc-sha256-00000.gz", // >= v2.2
+			},
+			wantErr: false,
+		},
+		{
+			name: "retrieve digest error",
+			pkg:  "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
+			digestFunc: func(ctx context.Context, s string) (string, error) {
+				return "", errors.Errorf("error")
+			},
+			want:    []string{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := generatePackageCacheKeys(context.Background(), tt.pkg, tt.digestFunc)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("generatePackageCacheKeys() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("generatePackageCacheKeys() succeeded unexpectedly")
+			}
+			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
 }

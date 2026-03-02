@@ -312,19 +312,9 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 			return ctx, err
 		}
 
-		ref, err := name.ParseReference(pkg)
+		cacheKeys, err := generatePackageCacheKeys(ctx, pkg, retrieveDigest)
 		if err != nil {
 			return ctx, err
-		}
-
-		digest, err := retrieveDigest(ctx, pkg)
-		if err != nil {
-			return ctx, err
-		}
-
-		cacheKeys := []string{
-			fullyQualifiedPathName("/cache/xpkg/", pkg, ".gz"),
-			fullyQualifiedPathName("/cache/xpkg/", friendlyID(parsePackageSourceFromReference(ref), digest), ".gz"),
 		}
 
 		for _, key := range cacheKeys {
@@ -341,6 +331,29 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 
 		return ctx, nil
 	}
+}
+
+type retrieveDigestFunc func(context.Context, string) (string, error)
+
+func generatePackageCacheKeys(ctx context.Context, pkg string, digestFunc retrieveDigestFunc) ([]string, error) {
+	digest, err := digestFunc(ctx, pkg)
+	if err != nil {
+		return nil, err
+	}
+	var friendlyIdentifier string
+	if digest == localImageDigest {
+		friendlyIdentifier = friendlyID(pkg, digest)
+	} else {
+		ref, err := name.ParseReference(pkg)
+		if err != nil {
+			return nil, err
+		}
+		friendlyIdentifier = friendlyID(parsePackageSourceFromReference(ref), digest)
+	}
+	return []string{
+		fullyQualifiedPathName("/cache/xpkg/", pkg, ".gz"),
+		fullyQualifiedPathName("/cache/xpkg/", friendlyIdentifier, ".gz"),
+	}, nil
 }
 
 // (from crossplane internal/xpkg)
@@ -428,6 +441,14 @@ func loadCrossplaneControllerImageToCluster(clusterName string, image *string) e
 func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOptions) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		klog.V(4).Infof("Installing crossplane provider %s: %s", opts.Name, opts.Package)
+
+		digest, err := retrieveDigest(ctx, opts.Package)
+		if err != nil {
+			return ctx, err
+		}
+		if digest == localImageDigest {
+			opts.Package = fmt.Sprintf("%s@%s", opts.Package, localImageDigest)
+		}
 
 		data := struct {
 			Name             string
