@@ -411,6 +411,7 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 		name string // description of this test case
 		// Named input parameters for target function.
 		pkg        string
+		localImage bool
 		digestFunc retrieveDigestFunc
 		want       []string
 		wantErr    bool
@@ -418,6 +419,7 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 		{
 			name: "remote image",
 			pkg:  "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
+			localImage: false,
 			digestFunc: func(ctx context.Context, s string) (string, error) {
 				return "sha256:552a394a8accd2b4d37fc5858abe93d311e727eafb3c00636e11c72572873e48", nil
 			},
@@ -430,8 +432,9 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "local image",
+			name: "local image without repo digest",
 			pkg:  "index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty",
+			localImage: true,
 			digestFunc: func(ctx context.Context, s string) (string, error) {
 				return localImageDigest, nil
 			},
@@ -440,6 +443,21 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 				"/cache/xpkg/index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty.gz", // < v2.2
 				// note that the image tag is not cut off but truncated
 				"/cache/xpkg/index-docker-io-build-908b1e2d-provider-nop-5eaddc-sha256-00000.gz", // >= v2.2
+			},
+			wantErr: false,
+		},
+		{
+			name: "local image with repo digest",
+			pkg:  "index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty",
+			localImage: true,
+			digestFunc: func(ctx context.Context, s string) (string, error) {
+				return "sha256:2605848b12fdd3a0f2b21e3b36acb8beaa0b01f93db834584956c58b0569157d", nil
+			},
+			want: []string{
+				// note that pkg repo name does not contain a file extension and remains completely the same
+				"/cache/xpkg/index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty.gz", // < v2.2
+				// note that the image tag is not cut off but truncated
+				"/cache/xpkg/index-docker-io-build-908b1e2d-provider-nop-5eaddc-sha256-26058.gz", // >= v2.2
 			},
 			wantErr: false,
 		},
@@ -455,7 +473,7 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := generatePackageCacheKeys(context.Background(), tt.pkg, tt.digestFunc)
+			got, gotErr := generatePackageCacheKeys(context.Background(), tt.pkg, tt.localImage, tt.digestFunc)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("generatePackageCacheKeys() failed: %v", gotErr)

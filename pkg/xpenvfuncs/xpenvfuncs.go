@@ -210,13 +210,14 @@ type InstallCrossplaneProviderOptions struct {
 	ControllerImage         *string // TODO read from package
 	ControllerConfig        *vendored.ControllerConfig
 	DeploymentRuntimeConfig *vendored.DeploymentRuntimeConfig
+	LocalImage              bool
 }
 
 // InstallCrossplaneProvider returns an env.Func that is used to
 // install a crossplane provider into the active cluster
 func InstallCrossplaneProvider(clusterName string, opts InstallCrossplaneProviderOptions) env.Func {
 	return Compose(
-		loadCrossplanePackageToCluster(clusterName, opts.Package),
+		loadCrossplanePackageToCluster(clusterName, opts.LocalImage, opts.Package),
 		loadCrossplaneControllerImageToCluster(clusterName, opts.ControllerImage),
 		installCrossplaneProviderEnvFunc(clusterName, opts),
 		awaitProviderHealthy(opts.Name),
@@ -296,7 +297,7 @@ func setupCrossplanePackageCache(clusterName string, cacheName string) env.Func 
 }
 
 // loadCrossplanePackageToCluster loads the crossplane config package into the given clusters package cache folder (/cache)
-func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
+func loadCrossplanePackageToCluster(clusterName string, localImage bool, pkg string) env.Func {
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		f, err := os.CreateTemp("", "xpkg")
 		if err != nil {
@@ -312,7 +313,7 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 			return ctx, err
 		}
 
-		cacheKeys, err := generatePackageCacheKeys(ctx, pkg, retrieveDigest)
+		cacheKeys, err := generatePackageCacheKeys(ctx, pkg, localImage, retrieveDigest)
 		if err != nil {
 			return ctx, err
 		}
@@ -335,13 +336,13 @@ func loadCrossplanePackageToCluster(clusterName string, pkg string) env.Func {
 
 type retrieveDigestFunc func(context.Context, string) (string, error)
 
-func generatePackageCacheKeys(ctx context.Context, pkg string, digestFunc retrieveDigestFunc) ([]string, error) {
+func generatePackageCacheKeys(ctx context.Context, pkg string, localImage bool, digestFunc retrieveDigestFunc) ([]string, error) {
 	digest, err := digestFunc(ctx, pkg)
 	if err != nil {
 		return nil, err
 	}
 	var friendlyIdentifier string
-	if digest == localImageDigest {
+	if localImage {
 		friendlyIdentifier = friendlyID(pkg, digest)
 	} else {
 		ref, err := name.ParseReference(pkg)
@@ -442,12 +443,12 @@ func installCrossplaneProviderEnvFunc(_ string, opts InstallCrossplaneProviderOp
 	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 		klog.V(4).Infof("Installing crossplane provider %s: %s", opts.Name, opts.Package)
 
-		digest, err := retrieveDigest(ctx, opts.Package)
-		if err != nil {
-			return ctx, err
-		}
-		if digest == localImageDigest {
-			opts.Package = fmt.Sprintf("%s@%s", opts.Package, localImageDigest)
+		if opts.LocalImage {
+			digest, err := retrieveDigest(ctx, opts.Package)
+			if err != nil {
+				return ctx, err
+			}
+			opts.Package = fmt.Sprintf("%s@%s", opts.Package, digest)
 		}
 
 		data := struct {
