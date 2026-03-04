@@ -417,8 +417,8 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name: "remote image",
-			pkg:  "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
+			name:       "remote image",
+			pkg:        "xpkg.upbound.io/crossplane-contrib/provider-nop:v0.2.0",
 			localImage: false,
 			digestFunc: func(ctx context.Context, s string) (string, error) {
 				return "sha256:552a394a8accd2b4d37fc5858abe93d311e727eafb3c00636e11c72572873e48", nil
@@ -432,8 +432,8 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "local image without repo digest",
-			pkg:  "index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty",
+			name:       "local image without repo digest",
+			pkg:        "index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty",
 			localImage: true,
 			digestFunc: func(ctx context.Context, s string) (string, error) {
 				return localImageDigest, nil
@@ -447,8 +447,8 @@ func Test_generatePackageCacheKeys(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "local image with repo digest",
-			pkg:  "index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty",
+			name:       "local image with repo digest",
+			pkg:        "index.docker.io/build-908b1e2d/provider-nop:5eaddce-dirty",
 			localImage: true,
 			digestFunc: func(ctx context.Context, s string) (string, error) {
 				return "sha256:2605848b12fdd3a0f2b21e3b36acb8beaa0b01f93db834584956c58b0569157d", nil
