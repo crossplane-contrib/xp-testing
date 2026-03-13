@@ -457,6 +457,9 @@ func PauseAnnotationHandler(r *resources.Resources, pauseValue string, opts ...r
 			return err
 		}
 		annotations := existingObj.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
 		annotations["crossplane.io/paused"] = pauseValue
 		patchAnnotations := map[string]interface{}{
 			"metadata": map[string]interface{}{
