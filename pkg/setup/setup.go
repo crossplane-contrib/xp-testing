@@ -55,9 +55,41 @@ func (c CrossplaneSetup) Options() []xpenvfuncs.CrossplaneOpt {
 
 // ClusterSetup help with a default kind setup for crossplane, with crossplane and a provider
 type ClusterSetup struct {
-	ProviderName            string
-	Images                  images.ProviderImages
-	CrossplaneSetup         CrossplaneSetup
+	ProviderName    string
+	Images          images.ProviderImages
+	CrossplaneSetup CrossplaneSetup
+	// CrossplaneInstallFunc, if non-nil, replaces the bundled InstallCrossplane
+	// step in Configure. The function is invoked once per Configure call (when
+	// firstSetup is true, i.e., not reusing an existing cluster) before
+	// InstallCrossplaneProvider runs.
+	//
+	// The replacement is responsible for satisfying the package-cache contract:
+	//
+	//   1. Create namespace "crossplane-system".
+	//   2. Set up a PV+PVC backed by /cache/xpkg on the kind control-plane node
+	//      (see SetupCrossplanePackageCache when that helper is exported, or
+	//      replicate inline using xpenvfuncs.setupCrossplanePackageCache's
+	//      logic).
+	//   3. `helm install crossplane <chartRef> --set packageCache.pvc=<name>`
+	//      where <name> matches the PVC created in step 2.
+	//
+	// Without these, InstallCrossplaneProvider's loadCrossplanePackageToCluster
+	// deposits the xpkg into a host directory the Crossplane pod can't read,
+	// and providers fail Healthy with:
+	//
+	//     failed to get pre-cached package with pull policy Never
+	//
+	// Use this hook for:
+	//   - Installing Crossplane from a pre-pulled local chart tarball
+	//     (avoiding `helm repo add charts.crossplane.io/stable` flake)
+	//   - Pulling from an OCI registry (oci://...)
+	//   - Pulling from a custom helm repo URL
+	//   - Air-gapped environments
+	//
+	// The CrossplaneSetup.Version / Registry / ChartRef / ChartRepoURL fields
+	// are ignored when CrossplaneInstallFunc is set — the caller has full
+	// control.
+	CrossplaneInstallFunc   env.Func
 	ControllerConfig        *vendored.ControllerConfig
 	DeploymentRuntimeConfig *vendored.DeploymentRuntimeConfig
 	ProviderCredential      *ProviderCredentials
@@ -101,7 +133,7 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 	testEnv.Setup(
 		xpenvfuncs.Conditional(
 			xpenvfuncs.Compose(
-				xpenvfuncs.InstallCrossplane(name, s.CrossplaneSetup.Options()...),
+				s.installCrossplaneFunc(name),
 				xpenvfuncs.InstallCrossplaneProvider(
 					name, xpenvfuncs.InstallCrossplaneProviderOptions{
 						Name:                    s.ProviderName,
@@ -123,6 +155,16 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 		xpenvfuncs.Conditional(envfuncs.DestroyCluster(name), !reuseCluster),
 	)
 	return name
+}
+
+// installCrossplaneFunc returns the env.Func that installs the Crossplane
+// control plane. When CrossplaneInstallFunc is non-nil, it takes precedence
+// over the bundled InstallCrossplane.
+func (s *ClusterSetup) installCrossplaneFunc(clusterName string) env.Func {
+	if s.CrossplaneInstallFunc != nil {
+		return s.CrossplaneInstallFunc
+	}
+	return xpenvfuncs.InstallCrossplane(clusterName, s.CrossplaneSetup.Options()...)
 }
 
 func setupProviderCredentials(s *ClusterSetup) env.Func {

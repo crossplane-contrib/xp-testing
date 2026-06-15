@@ -24,6 +24,27 @@ A reference implementation of `xp-testing` is available in [provider-argocd](htt
 
 The [nop_upgrade_test](./upgrade/nop_upgrade_test.go) demonstrates the upgrade test functionality with [provider-nop](https://github.com/crossplane-contrib/provider-nop).
 
+### Custom Crossplane installers
+
+For air-gapped environments or to bypass `charts.crossplane.io` (e.g.,
+when installing from a local tarball, OCI registry, or mirror), set
+`setup.ClusterSetup.CrossplaneInstallFunc` to a custom `env.Func` that
+produces the Crossplane control plane.
+
+The custom installer MUST satisfy the package-cache contract:
+
+1. Create namespace `crossplane-system`.
+2. Set up a PV+PVC named `<cacheName>` backed by `/cache/xpkg` on the
+   kind control-plane node.
+3. `helm install crossplane <chartRef> --set packageCache.pvc=<cacheName>`.
+
+Without these, `InstallCrossplaneProvider`'s xpkg loading deposits the
+package into a host directory the Crossplane pod can't read, and
+providers fail Healthy with `failed to get pre-cached package with pull
+policy Never`.
+
+See `xpenvfuncs.InstallCrossplane` for the reference implementation.
+
 ## Contributing
 
 `xp-testing` is a community driven project and we welcome contributions. See the
