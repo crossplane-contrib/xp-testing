@@ -141,6 +141,7 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 						ControllerImage:         s.Images.ControllerImage,
 						ControllerConfig:        s.ControllerConfig,
 						DeploymentRuntimeConfig: s.DeploymentRuntimeConfig,
+						LocalImage:              s.Images.LocalImage,
 					}),
 			), firstSetup),
 		setupProviderCredentials(s),

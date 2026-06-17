@@ -17,6 +17,7 @@ const (
 type ProviderImages struct {
 	Package         string
 	ControllerImage *string
+	LocalImage      bool
 }
 
 // GetImagesFromEnvironmentOrPanic retrieves image information from the environment and panics if `E2E_IMAGES` is not set
