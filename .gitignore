@@ -23,7 +23,7 @@ go.work
 
 .idea
 
-e2e/logs
-upgrade/logs
+test/e2e/logs
+test/upgrade/logs
 
 .DS_Store

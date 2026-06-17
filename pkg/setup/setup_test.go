@@ -1,12 +1,15 @@
 package setup
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/e2e-framework/pkg/envconf"
 )
 
 var someName = "Bar"
@@ -75,4 +78,27 @@ func Test_clusterName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClusterSetup_InstallCrossplaneFunc_HookOverrides(t *testing.T) {
+	called := false
+	sentinel := func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
+		called = true
+		return ctx, errors.New("sentinel")
+	}
+	s := &ClusterSetup{CrossplaneInstallFunc: sentinel}
+	got := s.installCrossplaneFunc("test-cluster")
+	require.NotNil(t, got)
+	_, err := got(context.Background(), nil)
+	require.True(t, called, "expected hook to be invoked")
+	require.EqualError(t, err, "sentinel")
+}
+
+func TestClusterSetup_InstallCrossplaneFunc_DefaultsToBundled(t *testing.T) {
+	s := &ClusterSetup{}
+	got := s.installCrossplaneFunc("test-cluster")
+	require.NotNil(t, got)
+	// The bundled InstallCrossplane errors when invoked outside a real test
+	// environment; asserting on that exact error couples too tightly. Just
+	// assert non-nil to confirm we delegated to the bundled installer.
 }

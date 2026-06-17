@@ -10,11 +10,11 @@ test:
 
 .PHONY: e2e
 e2e:
-	go test -v ./e2e/... -tags=e2e -count=1 -test.v
+	go test -v ./test/e2e/... -tags=e2e -count=1 -test.v
 
 .PHONY: upgrade
 upgrade:
-	go test -v ./upgrade/... -tags=upgrade -count=1 -test.v
+	go test -v ./test/upgrade/... -tags=upgrade -count=1 -test.v
 
 .PHONY: build
 build:
