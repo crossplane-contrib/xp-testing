@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
+	"sigs.k8s.io/e2e-framework/third_party/helm"
 )
 
 func TestCompose(t *testing.T) {
@@ -403,4 +404,102 @@ func Test_ValidateTestSetup(t *testing.T) {
 			}
 		})
 	}
+}
+
+// applyHelmOpts is a small helper that materialises a slice of helm.Option into
+// a concrete helm.Opts value so the resulting state can be asserted against in
+// tests.
+func applyHelmOpts(opts []helm.Option) helm.Opts {
+	var o helm.Opts
+	for _, op := range opts {
+		op(&o)
+	}
+	return o
+}
+
+func TestResolveCrossplaneChartRepoURL(t *testing.T) {
+	t.Run("empty override returns upstream default", func(t *testing.T) {
+		require.Equal(t, "https://charts.crossplane.io/stable", resolveCrossplaneChartRepoURL(""))
+		require.Equal(t, defaultCrossplaneChartRepoURL, resolveCrossplaneChartRepoURL(""))
+	})
+	t.Run("non-empty override is honoured", func(t *testing.T) {
+		require.Equal(t, "https://example.com/charts", resolveCrossplaneChartRepoURL("https://example.com/charts"))
+	})
+}
+
+func TestBuildCrossplaneHelmInstallOpts(t *testing.T) {
+	const cacheName = "package-cache"
+
+	t.Run("default behaviour - empty chart ref uses repo chart reference", func(t *testing.T) {
+		got := applyHelmOpts(buildCrossplaneHelmInstallOpts("", cacheName, nil))
+
+		require.Equal(t, "crossplane", got.Name)
+		require.Equal(t, "crossplane-system", got.Namespace)
+		// helm.WithReleaseName sets the ReleaseName field. The helm package's
+		// getCommand falls back to ReleaseName when Chart is empty, so this is
+		// what the helm install picks up as the chart reference.
+		require.Equal(t, helmRepoName+"/crossplane", got.ReleaseName)
+		require.Empty(t, got.Chart, "Chart must be empty when installing from a repo")
+		require.Equal(t, "10m", got.Timeout)
+		require.True(t, got.Wait)
+		require.Contains(t, got.Args, "--set")
+		require.Contains(t, got.Args, fmt.Sprintf("packageCache.pvc=%s", cacheName))
+	})
+
+	t.Run("file-path chart ref sets Chart and leaves ReleaseName empty", func(t *testing.T) {
+		const chartRef = "/tmp/crossplane-1.16.0.tgz"
+		got := applyHelmOpts(buildCrossplaneHelmInstallOpts(chartRef, cacheName, nil))
+
+		require.Equal(t, "crossplane", got.Name)
+		require.Equal(t, "crossplane-system", got.Namespace)
+		require.Equal(t, chartRef, got.Chart)
+		require.Empty(t, got.ReleaseName, "ReleaseName must be empty when installing from a chart ref")
+	})
+
+	t.Run("OCI chart ref sets Chart and leaves ReleaseName empty", func(t *testing.T) {
+		const chartRef = "oci://xpkg.crossplane.io/crossplane/crossplane"
+		got := applyHelmOpts(buildCrossplaneHelmInstallOpts(chartRef, cacheName, nil))
+
+		require.Equal(t, chartRef, got.Chart, "OCI URLs must be passed through to helm install verbatim")
+		require.Empty(t, got.ReleaseName, "ReleaseName must be empty for OCI installs")
+	})
+
+	t.Run("caller-supplied opts override defaults and are appended last", func(t *testing.T) {
+		// Version() is a CrossplaneOpt that pushes onto helm.Opts.Version.
+		// Registry() appends to helm.Opts.Args.
+		got := applyHelmOpts(buildCrossplaneHelmInstallOpts("", cacheName, []CrossplaneOpt{
+			Version("v1.16.0"),
+			Registry("xpkg.upbound.io"),
+		}))
+
+		require.Equal(t, "v1.16.0", got.Version)
+		// Registry adds two extra args (--set, args={--registry=...}).
+		require.Contains(t, got.Args, "args={--registry=xpkg.upbound.io}")
+	})
+
+	t.Run("ChartRef CrossplaneOpt sets the Chart field via helm.WithChart", func(t *testing.T) {
+		const chartRef = "oci://xpkg.crossplane.io/crossplane/crossplane"
+		// Pass via CrossplaneOpt rather than the chartRef parameter.
+		got := applyHelmOpts(buildCrossplaneHelmInstallOpts("", cacheName, []CrossplaneOpt{
+			ChartRef(chartRef),
+		}))
+		require.Equal(t, chartRef, got.Chart)
+	})
+}
+
+func TestInstallCrossplaneEntryPoints(t *testing.T) {
+	// All three entry points return non-nil env.Funcs without invoking them,
+	// since invocation needs a real kind cluster + helm binary. Smoke-checking
+	// that the wiring compiles and is reachable is enough at the unit-test
+	// layer; the real install path is exercised by downstream consumers.
+	require.NotNil(t, InstallCrossplane("cluster"))
+	require.NotNil(t, InstallCrossplaneFromChart("cluster", "/tmp/crossplane.tgz"))
+	require.NotNil(t, InstallCrossplaneFromChart("cluster", "oci://xpkg.crossplane.io/crossplane/crossplane"))
+	require.NotNil(t, InstallCrossplaneFromRepo("cluster", "https://example.com/charts"))
+
+	// The Version/Registry helpers must continue to work as CrossplaneOpts
+	// against all three entry points (backwards compatibility).
+	require.NotNil(t, InstallCrossplane("cluster", Version("v1.16.0"), Registry("xpkg.upbound.io")))
+	require.NotNil(t, InstallCrossplaneFromChart("cluster", "/tmp/c.tgz", Version("v1.16.0")))
+	require.NotNil(t, InstallCrossplaneFromRepo("cluster", "https://example.com/charts", Version("v1.16.0")))
 }

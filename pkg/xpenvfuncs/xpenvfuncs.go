@@ -96,6 +96,8 @@ const (
 	errNoClusterInContext = "could get get cluster with this name from context"
 	// for images that are not pulled from a registry
 	localImageDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	// defaultCrossplaneChartRepoURL is the upstream Crossplane stable chart repository URL.
+	defaultCrossplaneChartRepoURL = "https://charts.crossplane.io/stable"
 )
 
 var (
@@ -131,8 +133,48 @@ func isV2(version string) bool {
 	return version == "" || semver.Major(version) == "v2"
 }
 
-// InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster
+// InstallCrossplane returns an env.Func that is used to install crossplane into the given cluster.
+// The chart is pulled from the upstream Crossplane stable chart repository
+// (https://charts.crossplane.io/stable). For overriding the chart source see
+// InstallCrossplaneFromChart and InstallCrossplaneFromRepo.
 func InstallCrossplane(clusterName string, opts ...CrossplaneOpt) env.Func {
+	return installCrossplaneCore(clusterName, "", "", opts...)
+}
+
+// InstallCrossplaneFromChart returns an env.Func that installs crossplane from
+// a caller-supplied chart reference instead of the default
+// `helm repo add`/`helm repo update` flow.
+//
+// chartRef is passed verbatim to `helm install` and accepts:
+//   - file path: /path/to/crossplane-1.20.1.tgz
+//   - OCI URL:   oci://xpkg.crossplane.io/crossplane/crossplane
+//   - repo/name: e2e_crossplane-stable/crossplane (the legacy default)
+//
+// When chartRef is non-empty the `helm repo add` and `helm repo update` calls
+// are skipped — the caller is responsible for ensuring the ref is reachable by
+// helm. This is useful when the upstream chart CDN is unreliable in CI
+// (intermittent 403 Forbidden), in air-gapped environments, or when pulling the
+// chart from an OCI registry instead of a classic helm repo.
+func InstallCrossplaneFromChart(clusterName string, chartRef string, opts ...CrossplaneOpt) env.Func {
+	return installCrossplaneCore(clusterName, chartRef, "", opts...)
+}
+
+// InstallCrossplaneFromRepo returns an env.Func that installs crossplane from a custom
+// helm chart repository URL instead of the default https://charts.crossplane.io/stable.
+func InstallCrossplaneFromRepo(clusterName string, chartRepoURL string, opts ...CrossplaneOpt) env.Func {
+	return installCrossplaneCore(clusterName, "", chartRepoURL, opts...)
+}
+
+// installCrossplaneCore is the shared implementation used by InstallCrossplane,
+// InstallCrossplaneFromChart and InstallCrossplaneFromRepo.
+//
+// When chartRef is non-empty the `helm repo add`/`helm repo update` flow is
+// skipped and chartRef (a file path, OCI URL, or `repo/name`) is passed
+// straight through to `helm install`.
+// When chartRepoURL is non-empty (and chartRef is empty) it overrides the
+// default https://charts.crossplane.io/stable repository URL passed to
+// `helm repo add`.
+func installCrossplaneCore(clusterName string, chartRef string, chartRepoURL string, opts ...CrossplaneOpt) env.Func {
 	cacheName := "package-cache"
 
 	return Compose(
@@ -145,39 +187,70 @@ func InstallCrossplane(clusterName string, opts ...CrossplaneOpt) env.Func {
 			}
 
 			manager := helm.New(kindCluster.GetKubeconfig())
-			if err := manager.RunRepo(
-				helm.WithArgs(
-					"add",
-					helmRepoName,
-					"https://charts.crossplane.io/stable",
-					"--force-update",
-				),
-			); err != nil {
-				return ctx, errors.Wrap(err, "install crossplane func: failed to add crossplane helm chart repo")
+
+			if chartRef == "" {
+				// Pull the chart from a helm repository — defaulting to the
+				// upstream Crossplane stable chart repo unless overridden.
+				if err := manager.RunRepo(
+					helm.WithArgs(
+						"add",
+						helmRepoName,
+						resolveCrossplaneChartRepoURL(chartRepoURL),
+						"--force-update",
+					),
+				); err != nil {
+					return ctx, errors.Wrap(err, "install crossplane func: failed to add crossplane helm chart repo")
+				}
+				if err := manager.RunRepo(helm.WithArgs("update")); err != nil {
+					return ctx, errors.Wrap(err, "install crossplane func: failed to upgrade helm repo")
+				}
 			}
-			if err := manager.RunRepo(helm.WithArgs("update")); err != nil {
-				return ctx, errors.Wrap(err, "install crossplane func: failed to upgrade helm repo")
-			}
 
-			helmInstallOpts := make([]helm.Option, 0, 6+len(opts))
-			helmInstallOpts = append(helmInstallOpts,
-				helm.WithName("crossplane"),
-				helm.WithNamespace("crossplane-system"),
-				helm.WithReleaseName(helmRepoName+"/crossplane"),
-				helm.WithArgs("--set", fmt.Sprintf("packageCache.pvc=%s", cacheName)),
-				helm.WithTimeout("10m"),
-				helm.WithWait(),
-			)
-
-			helmInstallOpts = append(helmInstallOpts, opts...)
-
-			if err := manager.RunInstall(helmInstallOpts...); err != nil {
+			if err := manager.RunInstall(buildCrossplaneHelmInstallOpts(chartRef, cacheName, opts)...); err != nil {
 				return ctx, errors.Wrap(err, "install crossplane func: failed to install crossplane Helm chart")
 			}
 
 			return ctx, nil
 		},
 	)
+}
+
+// buildCrossplaneHelmInstallOpts constructs the helm.Option list passed to
+// `helm install`. When chartRef is non-empty the chart is installed directly
+// from that reference (file path, OCI URL, or `repo/name`). Otherwise the
+// implementation falls back to `<helmRepoName>/crossplane`, which assumes the
+// caller has already invoked `helm repo add`.
+//
+// Caller-supplied opts are appended last so they can override any of the
+// defaults set here.
+func buildCrossplaneHelmInstallOpts(chartRef string, cacheName string, opts []CrossplaneOpt) []helm.Option {
+	helmInstallOpts := make([]helm.Option, 0, 6+len(opts))
+	helmInstallOpts = append(helmInstallOpts,
+		helm.WithName("crossplane"),
+		helm.WithNamespace("crossplane-system"),
+	)
+	if chartRef != "" {
+		helmInstallOpts = append(helmInstallOpts, helm.WithChart(chartRef))
+	} else {
+		helmInstallOpts = append(helmInstallOpts, helm.WithReleaseName(helmRepoName+"/crossplane"))
+	}
+	helmInstallOpts = append(helmInstallOpts,
+		helm.WithArgs("--set", fmt.Sprintf("packageCache.pvc=%s", cacheName)),
+		helm.WithTimeout("10m"),
+		helm.WithWait(),
+	)
+	helmInstallOpts = append(helmInstallOpts, opts...)
+	return helmInstallOpts
+}
+
+// resolveCrossplaneChartRepoURL returns the helm chart repo URL to use when
+// installing crossplane via `helm repo add`. An empty override yields the
+// upstream default (https://charts.crossplane.io/stable).
+func resolveCrossplaneChartRepoURL(override string) string {
+	if override != "" {
+		return override
+	}
+	return defaultCrossplaneChartRepoURL
 }
 
 // ApplySecretInCrossplaneNamespace creates secret that is used by providers in the crossplane namespace
@@ -725,4 +798,13 @@ func Registry(registry string) CrossplaneOpt {
 	return func(opts *helm.Opts) {
 		opts.Args = append(opts.Args, "--set", fmt.Sprintf("args={--registry=%s}", registry))
 	}
+}
+
+// ChartRef returns a CrossplaneOpt that sets the helm chart reference passed to
+// `helm install`. It is a thin wrapper around helm.WithChart and accepts a file
+// path, OCI URL (oci://...), or `repo/name`. When threading the chart ref
+// through CrossplaneSetup, prefer the dedicated CrossplaneSetup.ChartRef field
+// which also skips the `helm repo add`/`helm repo update` flow.
+func ChartRef(chartRef string) CrossplaneOpt {
+	return helm.WithChart(chartRef)
 }
