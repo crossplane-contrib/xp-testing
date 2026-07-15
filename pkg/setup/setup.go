@@ -39,6 +39,24 @@ type ProviderCredentials struct {
 type CrossplaneSetup struct {
 	Version  string
 	Registry string
+	// ChartRef is an optional chart reference passed straight to `helm install`.
+	// When non-empty the `helm repo add` / `helm repo update` flow is skipped
+	// entirely. Accepts:
+	//   - file path: /path/to/crossplane-1.20.1.tgz
+	//   - OCI URL:   oci://xpkg.crossplane.io/crossplane/crossplane
+	//   - repo/name: e2e_crossplane-stable/crossplane (the legacy default)
+	//
+	// Useful when the upstream Crossplane chart CDN is unreliable in CI
+	// (intermittent 403 Forbidden), in air-gapped environments, or when
+	// pulling the chart from an OCI registry instead of a classic helm repo.
+	// The caller is responsible for ensuring the ref is reachable by helm.
+	// Mutually exclusive with ChartRepoURL — if both are set ChartRef takes
+	// precedence and ChartRepoURL is ignored.
+	ChartRef string
+	// ChartRepoURL optionally overrides the default
+	// https://charts.crossplane.io/stable helm repository URL. Ignored when
+	// ChartRef is set.
+	ChartRepoURL string
 }
 
 // Options returns configurtion as options pattern to be passed on to installation process step
@@ -51,6 +69,20 @@ func (c CrossplaneSetup) Options() []xpenvfuncs.CrossplaneOpt {
 		opts = append(opts, xpenvfuncs.Registry(c.Registry))
 	}
 	return opts
+}
+
+// installCrossplaneFunc returns the env.Func that performs the crossplane
+// installation, branching on ChartRef / ChartRepoURL to pick the right entry
+// point. ChartRef takes precedence over ChartRepoURL when both are set.
+func (c CrossplaneSetup) installCrossplaneFunc(clusterName string) env.Func {
+	switch {
+	case c.ChartRef != "":
+		return xpenvfuncs.InstallCrossplaneFromChart(clusterName, c.ChartRef, c.Options()...)
+	case c.ChartRepoURL != "":
+		return xpenvfuncs.InstallCrossplaneFromRepo(clusterName, c.ChartRepoURL, c.Options()...)
+	default:
+		return xpenvfuncs.InstallCrossplane(clusterName, c.Options()...)
+	}
 }
 
 // ClusterSetup help with a default kind setup for crossplane, with crossplane and a provider
@@ -133,7 +165,7 @@ func (s *ClusterSetup) Configure(testEnv env.Environment, cluster *kind.Cluster)
 	testEnv.Setup(
 		xpenvfuncs.Conditional(
 			xpenvfuncs.Compose(
-				s.installCrossplaneFunc(name),
+				s.CrossplaneSetup.installCrossplaneFunc(name),
 				xpenvfuncs.InstallCrossplaneProvider(
 					name, xpenvfuncs.InstallCrossplaneProviderOptions{
 						Name:                    s.ProviderName,
