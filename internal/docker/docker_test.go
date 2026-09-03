@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//nolint:goconst
 func TestSave(t *testing.T) {
 	type args struct {
 		image       string
@@ -183,6 +184,7 @@ func TestCp(t *testing.T) {
 	}
 }
 
+//nolint:goconst
 func TestExec(t *testing.T) {
 	type args struct {
 		container   string
