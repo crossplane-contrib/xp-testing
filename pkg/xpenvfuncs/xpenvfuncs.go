@@ -13,8 +13,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
+	mobbyclient "github.com/moby/moby/client"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
@@ -426,11 +425,11 @@ func fullyQualifiedPathName(cacheDir, packageName, ext string) string {
 }
 
 type imageInspector interface {
-	ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error)
+	ImageInspect(ctx context.Context, image string, opts ...mobbyclient.ImageInspectOption) (mobbyclient.ImageInspectResult, error)
 }
 
 var newDockerClient = func() (imageInspector, error) {
-	return client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	return mobbyclient.New()
 }
 
 func retrieveDigest(ctx context.Context, img string) (string, error) {
