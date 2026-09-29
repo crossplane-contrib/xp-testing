@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/env"
@@ -502,4 +504,65 @@ func TestInstallCrossplaneEntryPoints(t *testing.T) {
 	require.NotNil(t, InstallCrossplane("cluster", Version("v1.16.0"), Registry("xpkg.upbound.io")))
 	require.NotNil(t, InstallCrossplaneFromChart("cluster", "/tmp/c.tgz", Version("v1.16.0")))
 	require.NotNil(t, InstallCrossplaneFromRepo("cluster", "https://example.com/charts", Version("v1.16.0")))
+}
+
+type fakeImageInspector struct {
+	response image.InspectResponse
+	err      error
+}
+
+func (f *fakeImageInspector) ImageInspect(_ context.Context, _ string, _ ...client.ImageInspectOption) (image.InspectResponse, error) {
+	return f.response, f.err
+}
+
+func TestRetrieveDigest(t *testing.T) {
+	const imgName = "my-registry.local/my-image:v1.0.0"
+
+	t.Run("returns digest from first RepoDigest", func(t *testing.T) {
+		fake := &fakeImageInspector{
+			response: image.InspectResponse{
+				RepoDigests: []string{
+					"my-registry.local/my-image@sha256:abc123def456",
+					"other-registry.local/my-image@sha256:ignored",
+				},
+			},
+		}
+		newDockerClient = func() (imageInspector, error) { return fake, nil }
+
+		digest, err := retrieveDigest(context.Background(), imgName)
+
+		require.NoError(t, err)
+		require.Equal(t, "sha256:abc123def456", digest)
+	})
+
+	t.Run("returns localImageDigest when RepoDigests is empty", func(t *testing.T) {
+		fake := &fakeImageInspector{
+			response: image.InspectResponse{RepoDigests: []string{}},
+		}
+		newDockerClient = func() (imageInspector, error) { return fake, nil }
+
+		digest, err := retrieveDigest(context.Background(), imgName)
+
+		require.NoError(t, err)
+		require.Equal(t, localImageDigest, digest)
+	})
+
+	t.Run("propagates ImageInspect error", func(t *testing.T) {
+		fake := &fakeImageInspector{err: fmt.Errorf("image not found")}
+		newDockerClient = func() (imageInspector, error) { return fake, nil }
+
+		_, err := retrieveDigest(context.Background(), imgName)
+
+		require.EqualError(t, err, "image not found")
+	})
+
+	t.Run("propagates client construction error", func(t *testing.T) {
+		newDockerClient = func() (imageInspector, error) {
+			return nil, fmt.Errorf("no docker socket")
+		}
+
+		_, err := retrieveDigest(context.Background(), imgName)
+
+		require.EqualError(t, err, "no docker socket")
+	})
 }

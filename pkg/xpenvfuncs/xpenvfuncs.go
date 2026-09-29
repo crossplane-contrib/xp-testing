@@ -13,6 +13,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
@@ -424,8 +425,16 @@ func fullyQualifiedPathName(cacheDir, packageName, ext string) string {
 	return full[0:len(full)-len(existExt)] + ext
 }
 
+type imageInspector interface {
+	ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error)
+}
+
+var newDockerClient = func() (imageInspector, error) {
+	return client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+}
+
 func retrieveDigest(ctx context.Context, img string) (string, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := newDockerClient()
 	if err != nil {
 		return "", err
 	}
