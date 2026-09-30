@@ -7,7 +7,7 @@ import (
 
 	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
 	"github.com/moby/moby/api/types/image"
-	mobbyclient "github.com/moby/moby/client"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/pkg/env"
@@ -507,11 +507,11 @@ func TestInstallCrossplaneEntryPoints(t *testing.T) {
 }
 
 type fakeImageInspector struct {
-	response mobbyclient.ImageInspectResult
+	response mobyclient.ImageInspectResult
 	err      error
 }
 
-func (f *fakeImageInspector) ImageInspect(_ context.Context, _ string, _ ...mobbyclient.ImageInspectOption) (mobbyclient.ImageInspectResult, error) {
+func (f *fakeImageInspector) ImageInspect(_ context.Context, _ string, _ ...mobyclient.ImageInspectOption) (mobyclient.ImageInspectResult, error) {
 	return f.response, f.err
 }
 
@@ -520,7 +520,7 @@ func TestRetrieveDigest(t *testing.T) {
 
 	t.Run("returns digest from first RepoDigest", func(t *testing.T) {
 		fake := &fakeImageInspector{
-			response: mobbyclient.ImageInspectResult{
+			response: mobyclient.ImageInspectResult{
 				InspectResponse: image.InspectResponse{
 					RepoDigests: []string{
 						"my-registry.local/my-image@sha256:abc123def456",
@@ -539,7 +539,7 @@ func TestRetrieveDigest(t *testing.T) {
 
 	t.Run("returns localImageDigest when RepoDigests is empty", func(t *testing.T) {
 		fake := &fakeImageInspector{
-			response: mobbyclient.ImageInspectResult{},
+			response: mobyclient.ImageInspectResult{},
 		}
 		newDockerClient = func() (imageInspector, error) { return fake, nil }
 

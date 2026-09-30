@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	mobbyclient "github.com/moby/moby/client"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
@@ -425,11 +425,11 @@ func fullyQualifiedPathName(cacheDir, packageName, ext string) string {
 }
 
 type imageInspector interface {
-	ImageInspect(ctx context.Context, image string, opts ...mobbyclient.ImageInspectOption) (mobbyclient.ImageInspectResult, error)
+	ImageInspect(ctx context.Context, image string, opts ...mobyclient.ImageInspectOption) (mobyclient.ImageInspectResult, error)
 }
 
 var newDockerClient = func() (imageInspector, error) {
-	return mobbyclient.New(mobbyclient.FromEnv)
+	return mobyclient.New(mobyclient.FromEnv)
 }
 
 func retrieveDigest(ctx context.Context, img string) (string, error) {
