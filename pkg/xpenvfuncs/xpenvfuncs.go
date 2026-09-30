@@ -429,7 +429,7 @@ type imageInspector interface {
 }
 
 var newDockerClient = func() (imageInspector, error) {
-	return mobbyclient.New()
+	return mobbyclient.New(mobbyclient.FromEnv)
 }
 
 func retrieveDigest(ctx context.Context, img string) (string, error) {
