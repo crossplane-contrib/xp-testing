@@ -13,8 +13,8 @@ import (
 	"text/template"
 	"time"
 
-	mobbyclient "github.com/moby/moby/client"
 	"github.com/google/go-containerregistry/pkg/name"
+	mobbyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
