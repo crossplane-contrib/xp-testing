@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"text/template"
 	"time"
@@ -502,7 +504,41 @@ func loadCrossplaneControllerImageToCluster(clusterName string, image *string) e
 			return ctx, nil
 		}
 	}
-	return envfuncs.LoadDockerImageToCluster(clusterName, *image)
+	return loadImageToCluster(clusterName, *image)
+}
+
+var (
+	loadImage        = envfuncs.LoadImageToCluster
+	loadImageArchive = envfuncs.LoadImageArchiveToCluster
+	savePlatform     = docker.SavePlatform
+)
+
+// loadImageToCluster loads image into the cluster with kind load docker-image.
+// If that fails, it falls back to loading an archive that only contains the host platform:
+// with the containerd image store (default since Docker 29) kind cannot load multi-platform
+// images whose other platform variants have not been pulled.
+func loadImageToCluster(clusterName string, image string) env.Func {
+	return func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		ctx, err := loadImage(clusterName, image)(ctx, cfg)
+		if err == nil {
+			return ctx, nil
+		}
+		klog.V(4).Infof("Loading %s failed, retrying with an archive of the host platform: %v", image, err)
+
+		f, errTmp := os.CreateTemp("", "image-*.tar")
+		if errTmp != nil {
+			return ctx, stderrors.Join(err, errTmp)
+		}
+		_ = f.Close()
+		defer func(name string) {
+			_ = os.Remove(name)
+		}(f.Name())
+
+		if errSave := savePlatform(image, "linux/"+goruntime.GOARCH, f.Name()); errSave != nil {
+			return ctx, stderrors.Join(err, errSave)
+		}
+		return loadImageArchive(clusterName, f.Name())(ctx, cfg)
+	}
 }
 
 // installCrossplaneProviderEnvFunc is an env.Func to install a crossplane provider into the given cluster

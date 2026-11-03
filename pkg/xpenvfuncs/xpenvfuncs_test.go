@@ -3,6 +3,8 @@ package xpenvfuncs
 import (
 	"context"
 	"fmt"
+	"os"
+	goruntime "runtime"
 	"testing"
 
 	"github.com/crossplane-contrib/xp-testing/pkg/vendored"
@@ -568,3 +570,74 @@ func TestRetrieveDigest(t *testing.T) {
 		require.EqualError(t, err, "no docker socket")
 	})
 }
+
+func TestLoadImageToCluster(t *testing.T) {
+	const img = "my-registry.local/my-image:v1.0.0"
+
+	stub := func(err error, calls *[]string) func(string, string, ...string) env.Func {
+		return func(cluster, arg string, _ ...string) env.Func {
+			return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
+				*calls = append(*calls, arg)
+				return ctx, err
+			}
+		}
+	}
+	restore := func() {
+		loadImage, loadImageArchive, savePlatform = origLoadImage, origLoadImageArchive, origSavePlatform
+	}
+
+	t.Run("no fallback when kind load succeeds", func(t *testing.T) {
+		defer restore()
+		var loads, archives []string
+		loadImage = stub(nil, &loads)
+		loadImageArchive = stub(nil, &archives)
+		savePlatform = func(string, string, string) error { t.Fatal("unexpected save"); return nil }
+
+		_, err := loadImageToCluster("c", img)(context.Background(), envconf.New())
+
+		require.NoError(t, err)
+		require.Equal(t, []string{img}, loads)
+		require.Empty(t, archives)
+	})
+
+	t.Run("falls back to host platform archive", func(t *testing.T) {
+		defer restore()
+		var loads, archives []string
+		var savedPlatform, savedTarget string
+		loadImage = stub(fmt.Errorf("content digest not found"), &loads)
+		loadImageArchive = stub(nil, &archives)
+		savePlatform = func(image, platform, target string) error {
+			require.Equal(t, img, image)
+			savedPlatform, savedTarget = platform, target
+			return nil
+		}
+
+		_, err := loadImageToCluster("c", img)(context.Background(), envconf.New())
+
+		require.NoError(t, err)
+		require.Equal(t, "linux/"+goruntime.GOARCH, savedPlatform)
+		require.Equal(t, []string{savedTarget}, archives)
+		_, statErr := os.Stat(savedTarget)
+		require.True(t, os.IsNotExist(statErr), "archive should be removed")
+	})
+
+	t.Run("returns both errors when save fails", func(t *testing.T) {
+		defer restore()
+		var loads, archives []string
+		loadImage = stub(fmt.Errorf("load failed"), &loads)
+		loadImageArchive = stub(nil, &archives)
+		savePlatform = func(string, string, string) error { return fmt.Errorf("save failed") }
+
+		_, err := loadImageToCluster("c", img)(context.Background(), envconf.New())
+
+		require.ErrorContains(t, err, "load failed")
+		require.ErrorContains(t, err, "save failed")
+		require.Empty(t, archives)
+	})
+}
+
+var (
+	origLoadImage        = loadImage
+	origLoadImageArchive = loadImageArchive
+	origSavePlatform     = savePlatform
+)
