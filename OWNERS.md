@@ -16,3 +16,4 @@ guidelines and responsibilities for the steering committee and maintainers.
 * Maximilian Techritz <maximilian.techritz@sap.com> ([maximiliantech](https://github.com/maximiliantech))
 * Maximilian Braun <maximilian.braun@sap.com> ([maximilianbraun](https://github.com/maximilianbraun))
 * Christopher Junk <christopher.junk@sap.com> ([christophrj](https://github.com/christophrj))
+* Nikolas Losse <nikolas.losse@sap.com> ([n-losse](https://github.com/n-losse))
