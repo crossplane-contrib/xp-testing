@@ -49,16 +49,20 @@ func ImportResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir
 		t.Fatalf("No yaml files found for %s", dir)
 		return
 	}
-	decoderOptions = append(decoderOptions, decoder.MutateNamespace(cfg.Namespace()))
 	// managed resources fare cluster scoped, so if we patched them with the test namespace it won't do anything
 	errdecode := decoder.DecodeEachFile(
 		ctx, os.DirFS(dir), "*",
 		decoder.CreateIgnoreAlreadyExists(r),
-		decoderOptions...,
+		decodeOptions(cfg, decoderOptions)...,
 	)
 	if errdecode != nil {
 		t.Fatal(errdecode)
 	}
+}
+
+// decodeOptions puts the namespace mutation first so caller options can override it.
+func decodeOptions(cfg *envconf.Config, opts []decoder.DecodeOption) []decoder.DecodeOption {
+	return append([]decoder.DecodeOption{decoder.MutateNamespace(cfg.Namespace())}, opts...)
 }
 
 func resClient(cfg *envconf.Config) *resources.Resources {
@@ -89,7 +93,20 @@ func WaitForResourcesToBeSynced(
 	objFilterFunc ObjFilterFunc,
 	opts ...wait.Option,
 ) error {
-	objects, err := filteredObjects(ctx, cfg, dir, objFilterFunc)
+	return WaitForResourcesToBeSyncedWithDecoderOptions(ctx, cfg, dir, objFilterFunc, nil, opts...)
+}
+
+// WaitForResourcesToBeSyncedWithDecoderOptions waits until all managed resources are synced and available,
+// applying decoderOpts when decoding the resources from dir
+func WaitForResourcesToBeSyncedWithDecoderOptions(
+	ctx context.Context,
+	cfg *envconf.Config,
+	dir string,
+	objFilterFunc ObjFilterFunc,
+	decoderOpts []decoder.DecodeOption,
+	opts ...wait.Option,
+) error {
+	objects, err := filteredObjects(ctx, cfg, dir, objFilterFunc, decoderOpts...)
 	if err != nil {
 		return err
 	}
@@ -106,7 +123,20 @@ func WaitForResourcesToBeSynced(
 
 // WaitForResourcesToBePaused waits until all managed resources are synced false with reason ReconcilePaused
 func WaitForResourcesToBePaused(ctx context.Context, cfg *envconf.Config, dir string, objFilterFunc ObjFilterFunc, opts ...wait.Option) error {
-	objects, err := filteredObjects(ctx, cfg, dir, objFilterFunc)
+	return WaitForResourcesToBePausedWithDecoderOptions(ctx, cfg, dir, objFilterFunc, nil, opts...)
+}
+
+// WaitForResourcesToBePausedWithDecoderOptions waits until all managed resources are paused,
+// applying decoderOpts when decoding the resources from dir
+func WaitForResourcesToBePausedWithDecoderOptions(
+	ctx context.Context,
+	cfg *envconf.Config,
+	dir string,
+	objFilterFunc ObjFilterFunc,
+	decoderOpts []decoder.DecodeOption,
+	opts ...wait.Option,
+) error {
+	objects, err := filteredObjects(ctx, cfg, dir, objFilterFunc, decoderOpts...)
 	if err != nil {
 		return err
 	}
@@ -116,8 +146,8 @@ func WaitForResourcesToBePaused(ctx context.Context, cfg *envconf.Config, dir st
 	return wait.For(c.ResourcesMatch(&mockList{Items: objects}, c.IsPaused), opts...)
 }
 
-func filteredObjects(ctx context.Context, cfg *envconf.Config, dir string, objFilterFunc ObjFilterFunc) ([]k8s.Object, error) {
-	objects, err := getObjectsToImport(ctx, cfg, []string{dir})
+func filteredObjects(ctx context.Context, cfg *envconf.Config, dir string, objFilterFunc ObjFilterFunc, decoderOptions ...decoder.DecodeOption) ([]k8s.Object, error) {
+	objects, err := getObjectsToImport(ctx, cfg, []string{dir}, decoderOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,11 +179,7 @@ func identifiers(objects []k8s.Object) string {
 	return val
 }
 
-func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dirs []string) ([]k8s.Object, error) {
-	r := resClient(cfg)
-
-	r.WithNamespace(cfg.Namespace())
-
+func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dirs []string, decoderOptions ...decoder.DecodeOption) ([]k8s.Object, error) {
 	objects := make([]k8s.Object, 0)
 	for _, dir := range dirs {
 		err := decoder.DecodeEachFile(
@@ -162,7 +188,7 @@ func getObjectsToImport(ctx context.Context, cfg *envconf.Config, dirs []string)
 				objects = append(objects, obj)
 				return nil
 			},
-			decoder.MutateNamespace(cfg.Namespace()),
+			decodeOptions(cfg, decoderOptions)...,
 		)
 
 		if err != nil {
@@ -266,19 +292,19 @@ func dumpResourcesOfCRDs(ctx context.Context, t *testing.T, dynamiq dynamic.Inte
 }
 
 // DeleteResources deletes previously imported resources
-func DeleteResources(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDir string, timeout wait.Option) context.Context {
-	return DeleteResourcesFromDirs(ctx, t, cfg, []string{manifestDir}, timeout)
+func DeleteResources(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDir string, timeout wait.Option, decoderOptions ...decoder.DecodeOption) context.Context {
+	return DeleteResourcesFromDirs(ctx, t, cfg, []string{manifestDir}, timeout, decoderOptions...)
 }
 
 // DeleteResourcesFromDirs deletes previously imported resources from multiple directories
-func DeleteResourcesFromDirs(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDirs []string, timeout wait.Option) context.Context {
+func DeleteResourcesFromDirs(ctx context.Context, t *testing.T, cfg *envconf.Config, manifestDirs []string, timeout wait.Option, decoderOptions ...decoder.DecodeOption) context.Context {
 	klog.V(4).Info("Attempt to delete previously imported resources")
 	r, _ := GetResourcesWithRESTConfig(cfg)
-	objects, err := getObjectsToImport(ctx, cfg, manifestDirs)
+	objects, err := getObjectsToImport(ctx, cfg, manifestDirs, decoderOptions...)
 	if err != nil {
-		t.Fatal(objects)
+		t.Fatal(err)
 	}
-	if err = deleteObjects(ctx, cfg, manifestDirs); err != nil && !errors.IsNotFound(err) {
+	if err = deleteObjects(ctx, cfg, manifestDirs, decoderOptions...); err != nil && !errors.IsNotFound(err) {
 		t.Fatal(err)
 	}
 
@@ -291,7 +317,7 @@ func DeleteResourcesFromDirs(ctx context.Context, t *testing.T, cfg *envconf.Con
 	return ctx
 }
 
-func deleteObjects(ctx context.Context, cfg *envconf.Config, dirs []string) error {
+func deleteObjects(ctx context.Context, cfg *envconf.Config, dirs []string, decoderOptions ...decoder.DecodeOption) error {
 	r := resClient(cfg)
 	r.WithNamespace(cfg.Namespace())
 
@@ -299,7 +325,7 @@ func deleteObjects(ctx context.Context, cfg *envconf.Config, dirs []string) erro
 		err := decoder.DecodeEachFile(
 			ctx, os.DirFS(dir), "*",
 			decoder.DeleteHandler(r),
-			decoder.MutateNamespace(cfg.Namespace()),
+			decodeOptions(cfg, decoderOptions)...,
 		)
 
 		if err != nil {
@@ -374,6 +400,11 @@ type ResourceTestConfig struct {
 	ObjFilterFunc     ObjFilterFunc
 	AdditionalSteps   map[string]func(context.Context, *testing.T, *envconf.Config) context.Context
 	ResourceDirectory string
+	// DecoderOptions are applied every time ResourceDirectory is decoded
+	// (setup, wait, delete), so all steps see the same objects.
+	// Mutate functions must therefore be deterministic for the lifetime of the test binary,
+	// e.g. compute a run ID once. ObjFilterFunc sees the mutated objects.
+	DecoderOptions []decoder.DecodeOption
 }
 
 // NewResourceTestConfig constructs a simple version of ResourceTestConfig
@@ -395,7 +426,7 @@ func DefaultCRFolder(kind string) string {
 // Setup creates the resource in the cluster.
 func (r *ResourceTestConfig) Setup(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 	t.Logf("Apply %s", r.Kind)
-	ImportResources(ctx, t, cfg, r.ResourceDirectory)
+	ImportResources(ctx, t, cfg, r.ResourceDirectory, r.DecoderOptions...)
 
 	return ctx
 }
@@ -407,7 +438,7 @@ func (r *ResourceTestConfig) Teardown(ctx context.Context, t *testing.T, cfg *en
 
 // AssessCreate checks that the resource was created successfully.
 func (r *ResourceTestConfig) AssessCreate(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-	if err := WaitForResourcesToBeSynced(ctx, cfg, r.ResourceDirectory, r.ObjFilterFunc, wait.WithTimeout(time.Minute*5)); err != nil {
+	if err := WaitForResourcesToBeSyncedWithDecoderOptions(ctx, cfg, r.ResourceDirectory, r.ObjFilterFunc, r.DecoderOptions, wait.WithTimeout(time.Minute*5)); err != nil {
 		DumpManagedResources(ctx, t, cfg)
 		t.Fatal(err)
 	}
@@ -421,7 +452,7 @@ func (r *ResourceTestConfig) AssessUpdate(ctx context.Context, t *testing.T, cfg
 
 // AssessDelete checks that the resource was deleted successfully.
 func (r *ResourceTestConfig) AssessDelete(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-	return DeleteResources(ctx, t, cfg, r.ResourceDirectory, wait.WithTimeout(time.Minute*5))
+	return DeleteResources(ctx, t, cfg, r.ResourceDirectory, wait.WithTimeout(time.Minute*5), r.DecoderOptions...)
 }
 
 // PauseResources sets crossplane.io/paused true on every resource in the directory
@@ -437,11 +468,10 @@ func ResumeResources(ctx context.Context, t *testing.T, cfg *envconf.Config, dir
 func updatePauseAnnotation(ctx context.Context, t *testing.T, cfg *envconf.Config, dir string, pauseValue string, decoderOptions ...decoder.DecodeOption) {
 	r := resClient(cfg)
 	r.WithNamespace(cfg.Namespace())
-	decoderOptions = append(decoderOptions, decoder.MutateNamespace(cfg.Namespace()))
 	err := decoder.DecodeEachFile(
 		ctx, os.DirFS(dir), "*",
 		PauseAnnotationHandler(r, pauseValue),
-		decoderOptions...,
+		decodeOptions(cfg, decoderOptions)...,
 	)
 	if err != nil {
 		t.Fatal(err)
