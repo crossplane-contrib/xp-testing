@@ -91,6 +91,59 @@ func TestSave(t *testing.T) {
 	}
 }
 
+func TestSavePlatform(t *testing.T) {
+	tests := []struct {
+		description  string
+		image        string
+		platform     string
+		target       string
+		returnError  error
+		options      []string
+		errorMessage string
+	}{
+		{
+			description: "happy path",
+			image:       "alpine",
+			platform:    "linux/amd64",
+			target:      "alpine.tar",
+			options:     []string{"--platform", "linux/amd64", "alpine", "-o", "alpine.tar"},
+		},
+		{
+			description:  "returns an error if platform is empty",
+			image:        "alpine",
+			target:       "alpine.tar",
+			errorMessage: "please provide source, platform and target",
+		},
+		{
+			description:  "returns an error if command can't be executed",
+			image:        "alpine",
+			platform:     "linux/arm64",
+			target:       "alpine.tar",
+			returnError:  fmt.Errorf("sth went wrong"),
+			options:      []string{"--platform", "linux/arm64", "alpine", "-o", "alpine.tar"},
+			errorMessage: "sth went wrong",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			runDocker = func(command string, options ...string) error {
+				require.Equal(t, "save", command)
+				require.Equal(t, test.options, options)
+				return test.returnError
+			}
+
+			err := SavePlatform(test.image, test.platform, test.target)
+
+			if len(test.errorMessage) == 0 {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, test.errorMessage)
+			}
+		})
+	}
+}
+
 func TestCp(t *testing.T) {
 	type args struct {
 		source      string

@@ -16,6 +16,15 @@ func Save(image string, target string) error {
 	return runDocker("save", image, "-o", target)
 }
 
+// SavePlatform runs docker save for a single platform variant of image, e.g. linux/amd64
+func SavePlatform(image string, platform string, target string) error {
+	if len(image) == 0 || len(platform) == 0 || len(target) == 0 {
+		return fmt.Errorf("please provide source, platform and target")
+	}
+
+	return runDocker("save", "--platform", platform, image, "-o", target)
+}
+
 // Cp runs docker cp
 func Cp(src string, dest string) error {
 	if len(src) == 0 || len(dest) == 0 {
